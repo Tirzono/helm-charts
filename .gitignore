@@ -1,0 +1,14 @@
+# Packaged charts
+*.tgz
+
+# Downloaded chart dependencies (Chart.lock IS committed, the tarballs are not)
+charts/*/charts/
+
+# chart-releaser working directories
+.cr-release-packages/
+.cr-index/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store

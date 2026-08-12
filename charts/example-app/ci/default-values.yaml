@@ -1,0 +1,7 @@
+---
+# chart-testing installs the chart once per file in ci/.
+# This one exercises the defaults; add more files to cover other paths.
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
