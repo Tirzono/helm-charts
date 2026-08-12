@@ -1,0 +1,24 @@
+---
+apiVersion: v2
+name: django
+description: Base chart for a Django app — a web Deployment plus any number of extra process Deployments, backed by an external Postgres
+type: application
+
+# version is the chart version. Bump this on every change — the release
+# workflow only publishes versions that do not exist yet.
+version: 0.1.0
+
+# appVersion normally tracks the deployed application. This chart is a base:
+# the application image comes from values and differs per app, so appVersion
+# tracks the chart's own generation rather than any one app.
+appVersion: "1.0.0"
+
+home: https://github.com/tirzono/helm-charts
+sources:
+  - https://github.com/tirzono/helm-charts/tree/master/charts/django
+keywords:
+  - django
+  - python
+maintainers:
+  - name: tirzono
+    url: https://github.com/tirzono

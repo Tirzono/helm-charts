@@ -1,0 +1,30 @@
+---
+# Baseline: web process, one extra process, config, and the migration hook.
+# The image stands in for a real Django image — `python -m http.server` gives
+# CI something that listens on the web port and exits cleanly elsewhere.
+image:
+  repository: python
+  tag: "3.12-alpine"
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+
+web:
+  command: ["python", "-m", "http.server", "8000"]
+  readinessProbe:
+    tcpSocket:
+      port: http
+    initialDelaySeconds: 2
+
+config:
+  DJANGO_SETTINGS_MODULE: config.settings.production
+
+extraProcesses:
+  - name: worker
+    command: ["sleep", "3600"]
+
+migrations:
+  # Stands in for `manage.py migrate` — there is no database in CI.
+  command: ["python", "-c", "print('migrate')"]

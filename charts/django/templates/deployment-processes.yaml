@@ -1,0 +1,30 @@
+{{/*
+One Deployment per entry in extraProcesses. Nothing renders when the list is
+empty. What each process does is the application's business — the chart only
+knows they run the same image with a different command.
+*/}}
+{{- range $process := .Values.extraProcesses }}
+{{- $name := required "each extraProcesses entry needs a name" $process.name }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "django.fullname" $ }}-{{ $name }}
+  labels:
+    {{- include "django.componentLabels" (dict "root" $ "component" $name) | nindent 4 }}
+spec:
+  replicas: {{ dig "replicas" 1 $process }}
+  revisionHistoryLimit: {{ $.Values.revisionHistoryLimit }}
+  {{- with $process.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "django.componentSelectorLabels" (dict "root" $ "component" $name) | nindent 6 }}
+  template:
+    metadata:
+      {{- include "django.podMetadata" (dict "root" $ "component" $name "process" $process) | trim | nindent 6 }}
+    spec:
+      {{- include "django.podSpec" (dict "root" $ "component" $name "process" $process) | trim | nindent 6 }}
+{{- end }}

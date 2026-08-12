@@ -1,0 +1,66 @@
+---
+# Ingress with a class set and several extra processes — one of which overrides
+# replicas, resources and strategy.
+#
+# No database here: `ct install` runs these files against a real cluster, and a
+# Secret that does not exist would leave every pod stuck. The database wiring is
+# rendered by examples/, which is linted but never installed.
+image:
+  repository: python
+  tag: "3.12-alpine"
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+
+imagePullSecrets: []
+
+web:
+  replicas: 2
+  command: ["python", "-m", "http.server", "8000"]
+
+env:
+  - name: REDIS_URL
+    value: redis://redis.example.svc.cluster.local:6379/0
+
+existingConfigMaps: []
+
+config:
+  DJANGO_SETTINGS_MODULE: config.settings.production
+  DJANGO_ALLOWED_HOSTS: django.ci.local
+
+extraProcesses:
+  - name: worker
+    command: ["sleep", "3600"]
+    replicas: 2
+    resources:
+      requests:
+        cpu: 20m
+        memory: 64Mi
+  - name: scheduler
+    command: ["sleep", "3600"]
+    strategy:
+      type: Recreate
+  - name: consumer
+    command: ["sleep", "3600"]
+    env:
+      - name: QUEUE
+        value: events
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 10m
+  hosts:
+    - host: django.ci.local
+      paths:
+        - path: /
+          pathType: Prefix
+
+migrations:
+  enabled: false
+
+tests:
+  enabled: false

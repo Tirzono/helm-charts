@@ -1,0 +1,98 @@
+---
+# The fuller stack: Celery workers, Celery Beat, a websocket process and a bot,
+# against an external Postgres, an external RabbitMQ and an external Redis.
+#
+# Under this chart that is four entries in one list, not four templates. The
+# broker and cache arrive as ordinary env — the chart never bundles them.
+#
+# Files under examples/ are linted but never installed by CI, so they can
+# reference Secrets that only exist in a real cluster.
+
+image:
+  repository: ghcr.io/example/bigapp
+  tag: "2026.08.12-1"
+
+imagePullSecrets:
+  - name: ghcr-docker-config
+
+web:
+  replicas: 3
+  command: ["web"]
+  containerPort: 5000
+  strategy:
+    type: RollingUpdate
+
+extraProcesses:
+  - name: celery-worker
+    command: ["worker"]
+    replicas: 2
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+
+  - name: celery-beat
+    command: ["beat"]
+    replicas: 1
+    # One scheduler at a time, so no overlap during a rollout.
+    strategy:
+      type: Recreate
+
+  - name: websocket
+    command: ["websocket"]
+    replicas: 1
+
+  - name: bot
+    command: ["bot"]
+    replicas: 1
+    strategy:
+      type: Recreate
+
+database:
+  existingSecret: cluster-bigapp-app
+  host: pooler-bigapp-rw
+
+env:
+  - name: RABBITMQ_URL
+    valueFrom:
+      secretKeyRef:
+        name: rabbitmqcluster-bigapp-default-user
+        key: connection_string
+  - name: DJANGO_REDIS_SENTINEL_HOST
+    value: redis.bigapp.svc.cluster.local
+  - name: DJANGO_REDIS_SENTINEL_MASTER
+    value: mymaster
+
+existingSecrets:
+  - generated-secrets
+  - bigapp-secrets
+
+config:
+  DJANGO_SETTINGS_MODULE: config.settings.production
+  DJANGO_ERROR_REPORTING: sentry
+
+service:
+  port: 80
+
+ingress:
+  enabled: true
+  className: traefik
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+  hosts:
+    - host: api.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - api.example.com
+      secretName: bigapp-tls
+
+podSecurityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000

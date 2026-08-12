@@ -1,0 +1,27 @@
+---
+# The other networking mode: no ingress controller at all, service exposed
+# directly. Also the minimal case — zero extra processes, no config, no
+# database, migrations off.
+image:
+  repository: python
+  tag: "3.12-alpine"
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+
+web:
+  command: ["python", "-m", "http.server", "8000"]
+
+service:
+  type: LoadBalancer
+  port: 80
+
+ingress:
+  enabled: false
+
+extraProcesses: []
+
+migrations:
+  enabled: false

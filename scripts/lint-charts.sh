@@ -28,7 +28,10 @@ for chart in "${charts[@]}"; do
   echo "==> $chart (defaults)"
   helm lint "$chart" || failed=1
 
-  for values in "$chart"/ci/*.yaml; do
+  # ci/ files are installed against a real cluster by `ct install`, so they can
+  # only reference objects that exist there. examples/ files are lint-only, so
+  # they can cover paths that need a Secret from a real namespace.
+  for values in "$chart"/ci/*.yaml "$chart"/examples/*.yaml; do
     [[ -e "$values" ]] || continue
     echo "==> $chart (-f $values)"
     helm lint "$chart" -f "$values" || failed=1
