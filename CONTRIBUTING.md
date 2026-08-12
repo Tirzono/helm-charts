@@ -15,6 +15,8 @@ charts/
       tests/             # `helm test` hooks, run by `ct install`
     ci/
       *-values.yaml      # extra value sets CI installs one by one
+    examples/            # optional: complete values files, linted but never
+      *-values.yaml      # installed, so they can reference real-cluster objects
 .github/workflows/
   lint-test.yaml         # PR checks
   release.yaml           # publish on merge to master
@@ -40,7 +42,11 @@ Then edit `charts/my-new-chart/`:
 - `values.yaml` — every key should have a sensible default and a comment.
 - `README.md` — install snippet and a values table.
 - `ci/` — at least one values file; add more for optional templates so CI
-  actually renders and installs them.
+  actually renders and installs them. These run against a real cluster, so they
+  can only reference objects that exist there.
+- `examples/` — optional. Values files that document real usage. The local lint
+  script renders them, but CI never installs them, so this is where a values set
+  that references an existing Secret belongs.
 
 ## Changing an existing chart
 

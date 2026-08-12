@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Lint charts the way CI does: `helm lint` once per file in the chart's ci/
-# directory, plus once with the chart defaults.
+# directory, plus once with the chart defaults. Also lints every file in the
+# chart's examples/ directory, which CI does not touch at all.
 #
 # `helm template` is NOT enough — it concatenates output without parsing it,
 # so a template that renders invalid YAML still "succeeds". `helm lint` parses
@@ -8,7 +9,7 @@
 #
 # Usage:
 #   scripts/lint-charts.sh              # every chart
-#   scripts/lint-charts.sh example-app  # one chart
+#   scripts/lint-charts.sh django       # one chart
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
