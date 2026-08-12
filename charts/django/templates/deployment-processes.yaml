@@ -3,8 +3,16 @@ One Deployment per entry in extraProcesses. Nothing renders when the list is
 empty. What each process does is the application's business — the chart only
 knows they run the same image with a different command.
 */}}
+{{- $seen := dict }}
 {{- range $process := .Values.extraProcesses }}
 {{- $name := required "each extraProcesses entry needs a name" $process.name }}
+{{- if has $name (list "web" "migrate") }}
+{{- fail (printf "extraProcesses name %q is reserved by the chart's own workloads" $name) }}
+{{- end }}
+{{- if hasKey $seen $name }}
+{{- fail (printf "extraProcesses has more than one entry named %q" $name) }}
+{{- end }}
+{{- $_ := set $seen $name true }}
 ---
 apiVersion: apps/v1
 kind: Deployment
