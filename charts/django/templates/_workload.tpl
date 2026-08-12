@@ -12,6 +12,14 @@ Takes a dict:
   serviceAccountName
              optional; defaults to the release's ServiceAccount.
 
+`extraContainers`, `volumes` and `volumeMounts` are run through `tpl`, so a
+values file can name a chart-generated object, e.g. the files ConfigMap:
+
+    volumes:
+      - name: proxy-config
+        configMap:
+          name: '{{ include "django.filesConfigMapName" . }}'
+
 Emitted at column 0; callers indent it with nindent.
 */}}
 {{- define "django.podSpec" -}}
@@ -74,11 +82,14 @@ containers:
     {{- end }}
     {{- with (concat ($root.Values.volumeMounts | default list) ($process.volumeMounts | default list)) }}
     volumeMounts:
-      {{- toYaml . | nindent 6 }}
+      {{- tpl (toYaml .) $root | nindent 6 }}
     {{- end }}
+  {{- with $process.extraContainers }}
+  {{- tpl (toYaml .) $root | nindent 2 }}
+  {{- end }}
 {{- with (concat ($root.Values.volumes | default list) ($process.volumes | default list)) }}
 volumes:
-  {{- toYaml . | nindent 2 }}
+  {{- tpl (toYaml .) $root | nindent 2 }}
 {{- end }}
 {{- with (default $root.Values.nodeSelector $process.nodeSelector) }}
 nodeSelector:
@@ -105,6 +116,9 @@ Emitted at column 0; callers indent it with nindent.
 {{- $annotations := merge (dict) ($process.podAnnotations | default dict) ($root.Values.podAnnotations | default dict) -}}
 {{- if $root.Values.config }}
 {{- $_ := set $annotations "checksum/config" (toYaml $root.Values.config | sha256sum) -}}
+{{- end }}
+{{- if $root.Values.configFiles }}
+{{- $_ := set $annotations "checksum/files" (toYaml $root.Values.configFiles | sha256sum) -}}
 {{- end }}
 {{- with $annotations }}
 annotations:

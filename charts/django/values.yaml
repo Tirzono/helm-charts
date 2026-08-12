@@ -90,6 +90,18 @@ env: []
 #   DJANGO_ALLOWED_HOSTS: app.example.com
 config: {}
 
+# Files mounted into containers rather than loaded as env — a proxy config, a
+# logging config. Each key becomes a key in a ConfigMap named
+# <fullname>-files, which a volume then mounts. Contents are run through `tpl`,
+# so they can reference release values.
+#
+# configFiles:
+#   Caddyfile: |
+#     :8080 {
+#       reverse_proxy localhost:8000
+#     }
+configFiles: {}
+
 # Secrets that already exist in the namespace, wired up with envFrom.
 # This is the only secret mode the chart supports: the chart never creates or
 # generates a Secret, it only references what an operator (or CloudNativePG,
@@ -180,6 +192,29 @@ web:
     # initialDelaySeconds: 5
   startupProbe: {}
 
+  # Sidecars, written as plain container specs. The common case is a proxy in
+  # front of the app to serve static and media files, which is a deployment
+  # concern rather than something the chart should model:
+  #
+  # extraContainers:
+  #   - name: proxy
+  #     image: caddy:2.10.2-alpine
+  #     ports:
+  #       - name: proxy
+  #         containerPort: 8080
+  #         protocol: TCP
+  #     volumeMounts:
+  #       - name: proxy-config
+  #         mountPath: /etc/caddy/Caddyfile
+  #         subPath: Caddyfile
+  #
+  # With a sidecar in front, point service.targetPort at the sidecar's port and
+  # leave containerPort as the port the application itself listens on.
+  #
+  # extraContainers, volumes and volumeMounts are run through `tpl`, so they
+  # can name chart-generated objects — see examples/caddy-static-values.yaml.
+  extraContainers: []
+
   # Overrides of the shared defaults above. Anything left out falls back.
   resources: {}
   env: []
@@ -231,6 +266,9 @@ extraProcesses: []
 service:
   type: ClusterIP
   port: 80
+  # Named port on the web pod to route to. `http` is the application's own
+  # port; point this at a sidecar's port name when one fronts the app.
+  targetPort: http
   annotations: {}
 
 # ---------------------------------------------------------------------------

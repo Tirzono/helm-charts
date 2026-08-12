@@ -1,0 +1,57 @@
+---
+# A proxy sidecar in front of the app, with its config coming from the chart's
+# files ConfigMap and the Service pointed at the sidecar rather than the app.
+# `ct install` runs this, so the test connection actually goes through Caddy.
+image:
+  repository: python
+  tag: "3.12-alpine"
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+
+web:
+  command: ["python", "-m", "http.server", "8000"]
+  containerPort: 8000
+
+  extraContainers:
+    - name: proxy
+      image: caddy:2.10.2-alpine
+      imagePullPolicy: IfNotPresent
+      ports:
+        - name: proxy
+          containerPort: 8080
+          protocol: TCP
+      volumeMounts:
+        - name: proxy-config
+          mountPath: /etc/caddy/Caddyfile
+          subPath: Caddyfile
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+
+  volumes:
+    - name: proxy-config
+      configMap:
+        name: '{{ include "django.filesConfigMapName" . }}'
+
+  # A named port in a probe resolves within the container it is on, so this
+  # names the app's own port, not the sidecar's.
+  readinessProbe:
+    tcpSocket:
+      port: http
+    initialDelaySeconds: 2
+
+service:
+  targetPort: proxy
+
+configFiles:
+  Caddyfile: |
+    :8080 {
+      reverse_proxy localhost:8000
+    }
+
+migrations:
+  enabled: false

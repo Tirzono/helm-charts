@@ -1,0 +1,99 @@
+---
+# A web pod with a Caddy sidecar in front of Django, serving /media/ straight
+# from object storage and passing everything else to the app.
+#
+# The chart has no idea this is Caddy — it is a container spec, a file in a
+# ConfigMap, and a Service pointed at the sidecar's port instead of the app's.
+#
+# Files under examples/ are linted but never installed by CI, so they can
+# reference Secrets that only exist in a real cluster.
+
+image:
+  repository: ghcr.io/example/myapp
+  tag: "2026.08.12-1"
+
+imagePullSecrets:
+  - name: ghcr-docker-config
+
+web:
+  replicas: 3
+  command: ["web"]
+  # The port the application listens on, behind the proxy.
+  containerPort: 5000
+
+  extraContainers:
+    - name: proxy
+      image: caddy:2.10.2-alpine
+      imagePullPolicy: IfNotPresent
+      ports:
+        - name: proxy
+          containerPort: 8000
+          protocol: TCP
+      volumeMounts:
+        - name: proxy-config
+          mountPath: /etc/caddy/Caddyfile
+          subPath: Caddyfile
+
+  volumes:
+    # Rendered through tpl, so the chart's own ConfigMap can be named here.
+    - name: proxy-config
+      configMap:
+        name: '{{ include "django.filesConfigMapName" . }}'
+
+# The Service fronts the proxy, not the application.
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: proxy
+
+configFiles:
+  Caddyfile: |
+    :8000 {
+      log {
+        output stdout
+        format json
+      }
+
+      handle_path /media/* {
+        header Access-Control-Allow-Origin *
+        header Access-Control-Allow-Headers *
+        header Access-Control-Allow-Methods *
+
+        rewrite * /myapp{uri}
+
+        reverse_proxy https://nbg1.your-objectstorage.com {
+          header_up Host {upstream_hostport}
+        }
+      }
+
+      reverse_proxy localhost:5000 {
+        header_up X-Forwarded-Proto {header.X-Forwarded-Proto}
+      }
+    }
+
+extraProcesses:
+  - name: worker
+    command: ["worker"]
+    replicas: 2
+
+database:
+  existingSecret: cluster-myapp-app
+  host: pooler-myapp-rw
+
+existingSecrets:
+  - myapp-secrets
+
+ingress:
+  enabled: true
+  className: traefik
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: api.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - api.example.com
+      secretName: myapp-tls

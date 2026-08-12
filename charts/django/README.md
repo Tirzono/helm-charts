@@ -21,7 +21,8 @@ helm install myapp oci://ghcr.io/tirzono/charts/django --version 0.1.0 -f values
 | Deployment (one per extra process) | for each entry in `extraProcesses` |
 | Service | always, `ClusterIP` by default |
 | Ingress | `ingress.enabled: true` |
-| ConfigMap | `config` is non-empty |
+| ConfigMap (settings) | `config` is non-empty |
+| ConfigMap (mounted files) | `configFiles` is non-empty |
 | Job (`manage.py migrate`) | `migrations.enabled: true`, as a `pre-install,pre-upgrade` hook |
 | ServiceAccount | `serviceAccount.create: true` |
 | Test Pod | `helm test`, when `tests.enabled: true` |
@@ -39,6 +40,7 @@ consumes connections.
 | `extraProcesses` | A list; one Deployment per entry. Empty renders nothing. |
 | `service`, `ingress` | Networking. Both modes below are supported. |
 | `config` | Non-secret env, rendered into a ConfigMap. |
+| `configFiles` | Files rendered into a ConfigMap for mounting — a proxy config, for example. |
 | `existingSecrets`, `existingConfigMaps` | Existing objects wired up with `envFrom`. |
 | `database` | Host and name from values, credentials from an existing Secret. |
 | `env` | Extra env for every process, `valueFrom` included. |
@@ -81,6 +83,71 @@ Each entry accepts `name`, `command`, `args`, `replicas`, `strategy`, `ports`,
 
 The chart does not create a Service for an extra process that declares `ports`.
 Nothing has needed one yet; it is a small addition when something does.
+
+## Sidecars and static files
+
+A Django deployment usually wants something in front of the app to serve static
+and media files. That is a container spec, a config file and a Service target —
+so the chart provides those three things rather than a "static files" feature.
+
+```yaml
+web:
+  # The port the application itself listens on, now behind the proxy.
+  containerPort: 5000
+
+  extraContainers:
+    - name: proxy
+      image: caddy:2.10.2-alpine
+      ports:
+        - name: proxy
+          containerPort: 8000
+      volumeMounts:
+        - name: proxy-config
+          mountPath: /etc/caddy/Caddyfile
+          subPath: Caddyfile
+
+  volumes:
+    - name: proxy-config
+      configMap:
+        name: '{{ include "django.filesConfigMapName" . }}'
+
+# The Service fronts the proxy instead of the application.
+service:
+  targetPort: proxy
+
+configFiles:
+  Caddyfile: |
+    :8000 {
+      handle_path /media/* {
+        reverse_proxy https://objectstorage.example.com
+      }
+      reverse_proxy localhost:5000
+    }
+```
+
+`extraContainers`, `volumes` and `volumeMounts` are rendered through `tpl`, so
+values can name chart-generated objects — which is how the volume above finds
+the ConfigMap without knowing the release name. Contents of `configFiles` go
+through `tpl` as well; Caddy's single-brace placeholders (`{uri}`) pass through
+untouched, but a literal `{{` in a config file would need escaping.
+
+Pods roll when a mounted file changes: `configFiles` is hashed into a
+`checksum/files` pod annotation, the same way `config` is.
+
+`extraContainers` works on any process, not just `web` — the same field on an
+`extraProcesses` entry adds a sidecar to that process.
+
+A worked example is in
+[`examples/caddy-static-values.yaml`](examples/caddy-static-values.yaml), and
+`ci/sidecar-values.yaml` installs the pattern on every CI run so the wiring
+stays covered.
+
+Two things to watch:
+
+- A named port in a probe resolves within the container that declares it, so a
+  probe on the app cannot name the sidecar's port.
+- Port names are unique per pod: the app keeps `http`, the sidecar needs its own
+  name.
 
 ## Database
 
@@ -183,6 +250,8 @@ exists and the Job uses it.
 - [`celery-stack-values.yaml`](examples/celery-stack-values.yaml) — Celery
   workers, Celery Beat, a websocket process and a bot, with an external broker
   and cache.
+- [`caddy-static-values.yaml`](examples/caddy-static-values.yaml) — a Caddy
+  sidecar serving `/media/` from object storage in front of the app.
 
 They are linted like the `ci/` files but never installed, so they can reference
 Secrets that only exist in a real cluster.

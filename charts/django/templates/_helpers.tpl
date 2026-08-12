@@ -88,6 +88,13 @@ Name of the ConfigMap holding the non-secret settings.
 {{- end }}
 
 {{/*
+Name of the ConfigMap holding mounted files.
+*/}}
+{{- define "django.filesConfigMapName" -}}
+{{- printf "%s-files" (include "django.fullname" .) }}
+{{- end }}
+
+{{/*
 The application image. One image runs every process in the chart.
 */}}
 {{- define "django.image" -}}
