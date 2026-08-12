@@ -3,6 +3,24 @@ entries:
   example-app:
   - apiVersion: v2
     appVersion: 1.27-alpine
+    created: "2026-08-12T16:07:11.77506033Z"
+    description: A starter chart showing the layout every chart in this repo follows
+    digest: 4172ed7cc9160bddedb04377fd905ab7c3856f4fb037d335f49fe6db90bb7ecd
+    home: https://github.com/tirzono/helm-charts
+    keywords:
+    - example
+    maintainers:
+    - name: tirzono
+      url: https://github.com/tirzono
+    name: example-app
+    sources:
+    - https://github.com/tirzono/helm-charts/tree/master/charts/example-app
+    type: application
+    urls:
+    - https://github.com/Tirzono/helm-charts/releases/download/example-app-0.1.1/example-app-0.1.1.tgz
+    version: 0.1.1
+  - apiVersion: v2
+    appVersion: 1.27-alpine
     created: "2026-08-12T09:27:37.726011252Z"
     description: A starter chart showing the layout every chart in this repo follows
     digest: c475b0fd04fb0655a956837d72ab04a0726ff5b0bab66e08e9c6eeb07aef9d7c
@@ -19,4 +37,4 @@ entries:
     urls:
     - https://github.com/Tirzono/helm-charts/releases/download/example-app-0.1.0/example-app-0.1.0.tgz
     version: 0.1.0
-generated: "2026-08-12T09:27:37.726017944Z"
+generated: "2026-08-12T16:07:11.775071647Z"
