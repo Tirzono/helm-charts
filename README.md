@@ -109,9 +109,9 @@ need to `helm registry login` before pulling.
 ## Local development
 
 ```console
-helm lint charts/<chart>
-helm template test charts/<chart>
-helm install test charts/<chart> --dry-run
+# Lints each chart with its defaults and with every ci/*.yaml values file,
+# the same matrix CI uses:
+./scripts/lint-charts.sh
 
 # Same checks CI runs, if you have chart-testing installed:
 ct lint --config ct.yaml

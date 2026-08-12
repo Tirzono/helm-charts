@@ -6,7 +6,7 @@ type: application
 
 # version is the chart version. Bump this on every change — the release
 # workflow only publishes versions that do not exist yet.
-version: 0.1.0
+version: 0.1.1
 
 # appVersion is the version of the application this chart deploys.
 appVersion: "1.27-alpine"
