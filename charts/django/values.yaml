@@ -34,6 +34,14 @@ revisionHistoryLimit: 3
 # Any of them can be overridden per process — see `web` and `extraProcesses`.
 # ---------------------------------------------------------------------------
 
+# Annotations on the Deployment object itself, as opposed to podAnnotations
+# which land on the pod template. This is where a controller that watches
+# workloads goes:
+#
+# annotations:
+#   reloader.stakater.com/auto: "true"
+annotations: {}
+
 podAnnotations: {}
 podLabels: {}
 
@@ -218,6 +226,7 @@ web:
   # Overrides of the shared defaults above. Anything left out falls back.
   resources: {}
   env: []
+  annotations: {}
   podAnnotations: {}
   podLabels: {}
   volumes: []

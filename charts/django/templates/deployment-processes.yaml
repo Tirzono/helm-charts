@@ -20,6 +20,10 @@ metadata:
   name: {{ include "django.fullname" $ }}-{{ $name }}
   labels:
     {{- include "django.componentLabels" (dict "root" $ "component" $name) | nindent 4 }}
+  {{- with (merge (dict) ($process.annotations | default dict) ($.Values.annotations | default dict)) }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   replicas: {{ dig "replicas" 1 $process }}
   revisionHistoryLimit: {{ $.Values.revisionHistoryLimit }}

@@ -45,7 +45,7 @@ consumes connections.
 | `database` | Host and name from values, credentials from an existing Secret. |
 | `env` | Extra env for every process, `valueFrom` included. |
 | `migrations` | The migration hook. |
-| Shared defaults | `resources`, `podSecurityContext`, `securityContext`, `nodeSelector`, `tolerations`, `affinity`, `volumes`, `volumeMounts`, `podAnnotations`, `podLabels` — applied to every process, overridable per process. |
+| Shared defaults | `resources`, `podSecurityContext`, `securityContext`, `nodeSelector`, `tolerations`, `affinity`, `volumes`, `volumeMounts`, `annotations`, `podAnnotations`, `podLabels` — applied to every process, overridable per process. |
 
 Every key is commented in [values.yaml](values.yaml).
 
@@ -78,8 +78,9 @@ extraProcesses:
 ```
 
 Each entry accepts `name`, `command`, `args`, `replicas`, `strategy`, `ports`,
-`resources`, `env`, `podAnnotations`, `podLabels`, `volumes`, `volumeMounts`,
-`nodeSelector`, `tolerations`, `affinity`, and the three probes.
+`resources`, `env`, `extraContainers`, `annotations`, `podAnnotations`,
+`podLabels`, `volumes`, `volumeMounts`, `nodeSelector`, `tolerations`,
+`affinity`, and the three probes.
 
 The chart does not create a Service for an extra process that declares `ports`.
 Nothing has needed one yet; it is a small addition when something does.

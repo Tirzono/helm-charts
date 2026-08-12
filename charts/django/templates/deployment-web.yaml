@@ -6,6 +6,10 @@ metadata:
   name: {{ include "django.fullname" . }}-web
   labels:
     {{- include "django.componentLabels" (dict "root" . "component" "web") | nindent 4 }}
+  {{- with (merge (dict) (.Values.web.annotations | default dict) (.Values.annotations | default dict)) }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   replicas: {{ .Values.web.replicas }}
   revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
