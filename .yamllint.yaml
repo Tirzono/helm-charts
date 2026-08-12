@@ -1,0 +1,19 @@
+---
+# Used by chart-testing to lint Chart.yaml / values.yaml.
+extends: default
+
+rules:
+  braces:
+    max-spaces-inside: 1
+    level: error
+  brackets:
+    max-spaces-inside: 1
+    level: error
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: disable
+  document-start: disable
+  line-length: disable
+  truthy:
+    # GitHub Actions uses `on:` as a key.
+    check-keys: false
