@@ -9,7 +9,7 @@ charts/
     values.yaml          # documented defaults
     README.md            # install instructions + values table
     .helmignore
-    templates/
+    templates/            # no leading `---`; Helm emits its own separators
       _helpers.tpl
       ...
       tests/             # `helm test` hooks, run by `ct install`
@@ -21,6 +21,7 @@ charts/
 ct.yaml                  # chart-testing config
 .yamllint.yaml           # YAML style rules used by ct lint
 scripts/new-chart.sh     # scaffold a new chart
+scripts/lint-charts.sh   # run CI's lint matrix locally
 ```
 
 Charts are independent. Adding one means adding a directory — no central
@@ -60,10 +61,20 @@ bump — usually patch or minor.
 ## Before opening a PR
 
 ```console
-helm lint charts/<chart>
-helm template test charts/<chart>
-for f in charts/<chart>/ci/*.yaml; do helm template test charts/<chart> -f "$f" >/dev/null; done
+./scripts/lint-charts.sh <chart>    # omit <chart> to lint all of them
 ```
+
+That runs `helm lint` once with the chart defaults and once per file in the
+chart's `ci/` directory — the same matrix `ct lint` uses in CI.
+
+Lint with each `ci/` values file, not just the defaults. A template guarded by
+`{{- if }}` is not rendered at all under the defaults, so a broken optional
+template passes a bare `helm lint` and fails in CI.
+
+Do not substitute `helm template` for `helm lint`. `helm template` concatenates
+rendered output without parsing it and inserts its own `---` separators, so a
+template that produces invalid YAML still exits 0. `helm lint` parses each
+rendered file on its own, which is what CI does.
 
 If you have [chart-testing](https://github.com/helm/chart-testing) and
 [kind](https://kind.sigs.k8s.io/) locally, this is exactly what CI runs:
