@@ -1,0 +1,16 @@
+# Configuration for `ct install`.
+#
+# Same as ct.yaml, minus the library chart: chart-testing has no notion of
+# `type: library`, so it would try to `helm install` django-common, which Helm
+# refuses. The library is covered by installing the three charts built on it.
+remote: origin
+target-branch: master
+chart-dirs:
+  - charts
+chart-repos: []
+lint-conf: .yamllint.yaml
+helm-extra-args: --timeout 600s
+check-version-increment: true
+validate-maintainers: false
+excluded-charts:
+  - django-common

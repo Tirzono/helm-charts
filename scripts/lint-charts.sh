@@ -26,6 +26,15 @@ for chart in "${charts[@]}"; do
   chart="${chart%/}"
   [[ -f "$chart/Chart.yaml" ]] || continue
 
+  # Charts built on the django-common library need it vendored into charts/
+  # before they render; ct does this itself in CI. `build` fails when Chart.lock
+  # is older than a bumped dependency version, so fall back to regenerating it —
+  # commit the updated Chart.lock when that happens.
+  if grep -q '^dependencies:' "$chart/Chart.yaml"; then
+    helm dependency build "$chart" >/dev/null 2>&1 \
+      || helm dependency update "$chart" >/dev/null
+  fi
+
   echo "==> $chart (defaults)"
   helm lint "$chart" || failed=1
 
@@ -38,6 +47,10 @@ for chart in "${charts[@]}"; do
     helm lint "$chart" -f "$values" || failed=1
   done
 done
+
+# Flavour charts carry the base chart's values verbatim; make sure the copies
+# have not drifted.
+"$repo_root/scripts/check-shared-values.sh" || failed=1
 
 if [[ $failed -ne 0 ]]; then
   echo "FAILED" >&2

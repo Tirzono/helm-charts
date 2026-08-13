@@ -20,10 +20,12 @@ charts/
 .github/workflows/
   lint-test.yaml         # PR checks
   release.yaml           # publish on merge to master
-ct.yaml                  # chart-testing config
+ct.yaml                  # chart-testing config (lint)
+ct-install.yaml          # chart-testing config (install; excludes library charts)
 .yamllint.yaml           # YAML style rules used by ct lint
 scripts/new-chart.sh     # scaffold a new chart
 scripts/lint-charts.sh   # run CI's lint matrix locally
+scripts/check-shared-values.sh  # keep the Django charts' shared values in sync
 ```
 
 Charts are independent. Adding one means adding a directory — no central
@@ -47,6 +49,39 @@ Then edit `charts/my-new-chart/`:
 - `examples/` — optional. Values files that document real usage. The local lint
   script renders them, but CI never installs them, so this is where a values set
   that references an existing Secret belongs.
+
+## Chart families
+
+Some charts share templates through a `type: library` chart — the Django charts
+are the current example:
+
+```
+django-common           library: every template
+  django                base: no opinions
+  django-celery         adds a celery values block
+  django-procrastinate  adds a procrastinate values block
+```
+
+Rules for working in a family like that:
+
+- **Templates go in the library.** An application chart in the family should be
+  a values file plus one-line calls into the library. A flavour may add defines
+  that translate its own values block into what the library already renders,
+  and nothing more.
+- **The library is a dependency by relative path**
+  (`repository: file://../django-common`), so a PR's CI tests that PR's library
+  rather than the last published one. Consumers get a vendored copy at package
+  time.
+- **A library change ships only when its dependents are bumped too**: bump the
+  library's `version`, update `dependencies[].version` in each dependent, and
+  bump each dependent's own `version`. `helm dependency build` fails on a stale
+  `Chart.lock` — run `helm dependency update <chart>` and commit the result.
+- **Shared values stay byte-identical.** Flavour charts carry the base chart's
+  `values.yaml` verbatim below a marker, so `helm show values` documents the
+  whole API. Edit `charts/django/values.yaml`, then run
+  `scripts/check-shared-values.sh --fix`. CI runs the check.
+- **Library charts are excluded from `ct install`** (`ct-install.yaml`) because
+  Helm cannot install them. They are still linted.
 
 ## Changing an existing chart
 

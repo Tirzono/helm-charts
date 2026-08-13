@@ -26,6 +26,17 @@ helm install my-release oci://ghcr.io/tirzono/charts/django --version 0.1.0
 | Chart | Description |
 | ----- | ----------- |
 | [django](charts/django) | Base chart for a Django app: a web Deployment, any number of extra process Deployments, and a migration hook, against an external Postgres |
+| [django-celery](charts/django-celery) | Django plus a Celery stack — worker, Beat, optional Flower — rendered from one `celery` values block |
+| [django-procrastinate](charts/django-procrastinate) | Django plus a Procrastinate worker, no broker and no separate schema step |
+| [django-common](charts/django-common) | Library chart holding the templates the three above render from. Not installable on its own |
+
+The Django charts are one family: `django-common` holds every template, and the
+three application charts are a values file plus one-line calls into it. A
+flavour adds an opinionated values block that renders into the same generic
+processes the base chart already understands — so nothing a flavour does is out
+of reach of the base chart, it is just written for you. See
+[django-common's README](charts/django-common/README.md) for how to add another
+one.
 
 ## Adding a chart
 
