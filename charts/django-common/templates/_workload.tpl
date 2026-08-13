@@ -9,6 +9,8 @@ Takes a dict:
   process    a process dict from values — `web`, an `extraProcesses` entry, or
              `migrations`. Every field is optional and falls back to the
              matching shared default at the top level of values.
+  extraEnv   optional env entries a flavour chart computed, added to every
+             container ahead of the user's own env
   serviceAccountName
              optional; defaults to the release's ServiceAccount.
 
@@ -60,7 +62,7 @@ containers:
     envFrom:
       {{- . | nindent 6 }}
     {{- end }}
-    {{- with include "django.env" (dict "root" $root "process" $process) }}
+    {{- with include "django.env" (dict "root" $root "process" $process "extraEnv" (.extraEnv | default list)) }}
     env:
       {{- . | nindent 6 }}
     {{- end }}

@@ -1,0 +1,40 @@
+---
+# Exercises the flavour: worker, beat and flower rendered from the celery block,
+# broker env on every process.
+#
+# The commands are replaced with sleeps because the CI image has no celery in
+# it — what is being tested here is that the flavour produces the right
+# processes, names, strategies and env, not that Celery runs.
+image:
+  repository: python
+  tag: "3.12-alpine"
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+
+web:
+  command: ["python", "-m", "http.server", "8000"]
+  readinessProbe:
+    tcpSocket:
+      port: http
+    initialDelaySeconds: 2
+
+celery:
+  app: config
+  broker:
+    url: amqp://guest:guest@rabbitmq.example.svc.cluster.local:5672//
+  worker:
+    replicas: 1
+    command: ["sleep", "3600"]
+    # `null` rather than {} — an empty map merges into the chart default.
+    livenessProbe: null
+  beat:
+    command: ["sleep", "3600"]
+  flower:
+    enabled: true
+    command: ["sleep", "3600"]
+
+migrations:
+  command: ["python", "-c", "print('migrate')"]

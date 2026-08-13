@@ -156,8 +156,13 @@ manifest. Takes the root context.
 {{- end }}
 
 {{/*
-Full env for one process: database env, then the shared env, then the process's
-own. Takes a dict of `root` and `process`.
+Full env for one process, in precedence order — later entries win in Kubernetes,
+so the user's own env is last:
+
+  database env, anything a flavour chart computed, the shared env, the
+  process's own env.
+
+Takes a dict of `root`, `process`, and an optional `extraEnv` list.
 */}}
 {{- define "django.env" -}}
 {{- $root := .root -}}
@@ -166,6 +171,7 @@ own. Takes a dict of `root` and `process`.
 {{- with (include "django.databaseEnv" $root) }}
 {{- $env = concat $env (. | fromYamlArray) -}}
 {{- end }}
+{{- $env = concat $env (.extraEnv | default list) -}}
 {{- $env = concat $env ($root.Values.env | default list) -}}
 {{- $env = concat $env ($process.env | default list) -}}
 {{- with $env }}

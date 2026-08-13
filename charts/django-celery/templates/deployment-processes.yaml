@@ -1,0 +1,3 @@
+{{- $extraEnv := include "django-celery.env" . | fromYamlArray }}
+{{- $extraProcesses := include "django-celery.processes" . | fromYamlArray }}
+{{- include "django.deployments.processes" (dict "root" . "extraProcesses" $extraProcesses "extraEnv" $extraEnv) }}

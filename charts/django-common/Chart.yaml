@@ -1,0 +1,22 @@
+---
+apiVersion: v2
+name: django-common
+description: Library chart holding the templates every Django chart in this repo renders — the base a plain chart and each opinionated flavour is built from
+type: library
+
+# version is the chart version. Bump this on every change — the release
+# workflow only publishes versions that do not exist yet.
+#
+# Dependent charts vendor this one at package time, so a change here reaches
+# consumers only when each dependent chart bumps its own version too.
+version: 0.1.0
+
+home: https://github.com/tirzono/helm-charts
+sources:
+  - https://github.com/tirzono/helm-charts/tree/master/charts/django-common
+keywords:
+  - django
+  - library
+maintainers:
+  - name: tirzono
+    url: https://github.com/tirzono

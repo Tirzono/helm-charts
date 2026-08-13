@@ -1,0 +1,31 @@
+---
+# Exercises the flavour: the worker rendered from the procrastinate block.
+#
+# The command is replaced with a sleep and the health check removed because the
+# CI image is not a Django app — what is being tested is that the flavour
+# produces the right process, not that Procrastinate runs.
+image:
+  repository: python
+  tag: "3.12-alpine"
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+
+web:
+  command: ["python", "-m", "http.server", "8000"]
+  readinessProbe:
+    tcpSocket:
+      port: http
+    initialDelaySeconds: 2
+
+procrastinate:
+  worker:
+    replicas: 1
+    command: ["sleep", "3600"]
+    # `null` rather than {} — an empty map merges into the chart default.
+    livenessProbe: null
+
+migrations:
+  command: ["python", "-c", "print('migrate')"]

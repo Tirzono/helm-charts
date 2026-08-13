@@ -9,6 +9,19 @@ Procrastinate worker, a scheduler, a websocket process and a Telegram bot are
 all the same thing from here: the same image, a different command. They are
 entries in a list, not templates.
 
+## Which chart
+
+| Chart | Use it when |
+| ----- | ----------- |
+| **django** (this one) | The processes are the app's own, or a mix nothing else models. |
+| [django-celery](../django-celery) | The app runs Celery — worker, Beat, optionally Flower. |
+| [django-procrastinate](../django-procrastinate) | The app runs a Procrastinate worker. |
+
+All three render from the same [django-common](../django-common) library, so
+everything below applies to all of them. The flavours only add a values block
+that writes their processes for you; anything they render, you can write by
+hand here.
+
 ```console
 helm install myapp oci://ghcr.io/tirzono/charts/django --version 0.1.0 -f values.yaml
 ```
@@ -262,3 +275,8 @@ Secrets that only exist in a real cluster.
 ```console
 ../../scripts/lint-charts.sh django
 ```
+
+The templates live in [django-common](../django-common); this chart is its
+values file and a set of one-line calls into it. `values.yaml` here is the
+canonical copy of the base values — the flavour charts carry it verbatim, kept
+honest by `scripts/check-shared-values.sh`.

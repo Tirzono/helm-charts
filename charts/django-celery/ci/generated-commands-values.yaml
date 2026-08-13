@@ -1,0 +1,45 @@
+---
+# The other half: no command overrides, so the flavour's generated celery
+# commands are what render. Not installed with a working broker, so the
+# workloads are scaled to zero — this file exists to keep the generated
+# commands covered by `helm lint`.
+image:
+  repository: python
+  tag: "3.12-alpine"
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+
+web:
+  # Zero replicas everywhere: the broker Secret referenced below does not exist
+  # in CI, so nothing may actually start.
+  replicas: 0
+  command: ["python", "-m", "http.server", "8000"]
+
+celery:
+  app: myproject
+  logLevel: debug
+  broker:
+    existingSecret: rabbitmqcluster-ci-default-user
+    existingSecretKey: connection_string
+  resultBackend:
+    url: redis://redis.example.svc.cluster.local:6379/1
+  worker:
+    replicas: 0
+    queues: [high, default]
+    concurrency: 4
+    extraArgs: ["--without-gossip"]
+    livenessProbe: null
+  beat:
+    replicas: 0
+  flower:
+    enabled: true
+    replicas: 0
+
+migrations:
+  enabled: false
+
+tests:
+  enabled: false

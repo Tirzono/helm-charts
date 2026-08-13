@@ -1,10 +1,9 @@
 ---
-# A Django app with a single extra process: a Procrastinate worker.
+# A complete deployment on this chart: web, one Procrastinate worker, a CNPG
+# database, an existing secret and an ingress.
 #
-# Nothing here is a chart feature — the chart has no idea what Procrastinate is.
-# The task framework only shows up as a command in a list. Procrastinate's own
-# schema ships as Django migrations when it is wired through Django, so the
-# chart's plain `manage.py migrate` hook is all this app needs.
+# The worker is not listed under extraProcesses — the procrastinate block below
+# renders it, which is the whole point of this chart over the base one.
 #
 # Files under examples/ are linted but never installed by CI, so they can
 # reference Secrets that only exist in a real cluster.
@@ -30,10 +29,11 @@ web:
       port: http
     initialDelaySeconds: 15
 
-extraProcesses:
-  - name: worker
-    command: ["python", "manage.py", "procrastinate", "worker"]
-    replicas: 1
+procrastinate:
+  worker:
+    replicas: 2
+    queues: [emails, default]
+    concurrency: 4
     resources:
       requests:
         cpu: 100m

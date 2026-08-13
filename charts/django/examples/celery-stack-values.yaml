@@ -5,6 +5,11 @@
 # Under this chart that is four entries in one list, not four templates. The
 # broker and cache arrive as ordinary env — the chart never bundles them.
 #
+# An app that runs a standard Celery stack is better served by the
+# django-celery chart, which writes the worker and beat entries for you. This
+# example stays here because it is the clearest demonstration of the generic
+# mechanism underneath.
+#
 # Files under examples/ are linted but never installed by CI, so they can
 # reference Secrets that only exist in a real cluster.
 

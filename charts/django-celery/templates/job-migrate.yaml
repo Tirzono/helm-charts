@@ -1,0 +1,2 @@
+{{- $extraEnv := include "django-celery.env" . | fromYamlArray }}
+{{- include "django.job.migrate" (dict "root" . "extraEnv" $extraEnv) }}
