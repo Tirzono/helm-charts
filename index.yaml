@@ -1,5 +1,28 @@
 apiVersion: v1
 entries:
+  django:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-08-15T06:48:45.8501338Z"
+    description: Base chart for a Django app — a web Deployment plus any number of
+      extra process Deployments, backed by an external Postgres
+    digest: e84756934baa9592fa4ab72b1f2432da12bfc1a11e614da6d72bd7486d9f3dde
+    home: https://github.com/tirzono/helm-charts
+    keywords:
+    - django
+    - celery
+    - procrastinate
+    - python
+    maintainers:
+    - name: tirzono
+      url: https://github.com/tirzono
+    name: django
+    sources:
+    - https://github.com/tirzono/helm-charts/tree/master/charts/django
+    type: application
+    urls:
+    - https://github.com/Tirzono/helm-charts/releases/download/django-0.1.0/django-0.1.0.tgz
+    version: 0.1.0
   example-app:
   - apiVersion: v2
     appVersion: 1.27-alpine
@@ -37,4 +60,4 @@ entries:
     urls:
     - https://github.com/Tirzono/helm-charts/releases/download/example-app-0.1.0/example-app-0.1.0.tgz
     version: 0.1.0
-generated: "2026-08-12T16:07:11.775071647Z"
+generated: "2026-08-15T06:48:45.850145812Z"
