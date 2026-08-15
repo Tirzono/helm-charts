@@ -1,0 +1,117 @@
+---
+# The full Celery stack: worker, Beat and Flower against an external RabbitMQ
+# and Redis, with a static-files sidecar in front of the web process.
+#
+# `celery.enabled: true` is what turns this release into a Celery deployment —
+# it renders the same extraProcesses entries you would otherwise write out.
+#
+# Files under examples/ are linted but never installed by CI, so they can
+# reference Secrets that only exist in a real cluster.
+
+image:
+  repository: ghcr.io/example/bigapp
+  tag: "2026.08.12-1"
+
+imagePullSecrets:
+  - name: ghcr-docker-config
+
+annotations:
+  reloader.stakater.com/auto: "true"
+
+celery:
+  enabled: true
+  app: config
+  logLevel: info
+
+  broker:
+    existingSecret: rabbitmqcluster-bigapp-default-user
+    existingSecretKey: connection_string
+
+  resultBackend:
+    url: redis://redis.bigapp.svc.cluster.local:6379/1
+
+  worker:
+    replicas: 3
+    queues: [high, default]
+    concurrency: 4
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+
+  beat:
+    replicas: 1
+
+  flower:
+    enabled: true
+    port: 5555
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+
+# A process Celery knows nothing about still goes in the generic list.
+extraProcesses:
+  websocket:
+    command: ["websocket"]
+    replicas: 1
+
+database:
+  existingSecret: cluster-bigapp-app
+  host: pooler-bigapp-rw
+
+existingSecrets:
+  - bigapp-secrets
+
+config:
+  DJANGO_SETTINGS_MODULE: config.settings.production
+
+web:
+  replicas: 3
+  command: ["web"]
+  containerPort: 5000
+  sidecars:
+    - name: proxy
+      image: caddy:2.10.2-alpine
+      ports:
+        - name: proxy
+          containerPort: 8000
+          protocol: TCP
+      volumeMounts:
+        - name: proxy-config
+          mountPath: /etc/caddy/Caddyfile
+          subPath: Caddyfile
+  volumes:
+    - name: proxy-config
+      configMap:
+        name: '{{ include "django.filesConfigMapName" . }}'
+
+service:
+  targetPort: proxy
+
+configFiles:
+  Caddyfile: |
+    :8000 {
+      handle_path /static/* {
+        root * /app
+        file_server
+      }
+      reverse_proxy localhost:5000
+    }
+
+ingress:
+  enabled: true
+  className: traefik
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: api.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - api.example.com
+      secretName: bigapp-tls

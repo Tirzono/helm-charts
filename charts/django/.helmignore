@@ -19,3 +19,6 @@
 
 # CI values are only used by chart-testing, not by consumers.
 ci/
+
+# Example values are documentation, not chart content.
+examples/

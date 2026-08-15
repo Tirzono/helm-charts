@@ -12,20 +12,20 @@ independently versioned chart, published two ways on every merge to `master`:
 helm repo add tirzono https://tirzono.github.io/helm-charts
 helm repo update
 helm search repo tirzono
-helm install my-release tirzono/example-app
+helm install my-release tirzono/django
 ```
 
 Or pull straight from the OCI registry, no `helm repo add` needed:
 
 ```console
-helm install my-release oci://ghcr.io/tirzono/charts/example-app --version 0.1.0
+helm install my-release oci://ghcr.io/tirzono/charts/django --version 0.1.0
 ```
 
 ## Available charts
 
 | Chart | Description |
 | ----- | ----------- |
-| [example-app](charts/example-app) | Starter chart showing the layout every chart here follows |
+| [django](charts/django) | Django app: a web Deployment, any number of extra process Deployments, and a migration hook, against an external Postgres. Optional `celery` and `procrastinate` blocks render the usual task-framework processes |
 
 ## Adding a chart
 
@@ -33,9 +33,10 @@ helm install my-release oci://ghcr.io/tirzono/charts/example-app --version 0.1.0
 ./scripts/new-chart.sh my-new-chart
 ```
 
-That copies `charts/example-app` into `charts/my-new-chart` and rewrites the
-template helpers and `Chart.yaml` metadata. Replace the templates and values
-with your own, add a row to the table above, and open a PR.
+That scaffolds `charts/my-new-chart` with `helm create` and applies this
+repository's conventions — `Chart.yaml` metadata, a `ci/` values file, a README
+stub. Replace the templates and values with your own, add a row to the table
+above, and open a PR.
 
 Charts are fully independent — they have their own `Chart.yaml`, version, and
 release tags. Nothing needs to be registered centrally; the workflows discover

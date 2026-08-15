@@ -1,0 +1,54 @@
+{{/*
+One Deployment per process: every key under extraProcesses, plus whatever the
+enabled task-framework blocks contribute. Nothing renders when there are none.
+
+extraProcesses is a map rather than a list so a second values file can override
+one process without restating the rest — Helm deep-merges maps but replaces
+lists wholesale.
+
+What each process does is the application's business — the chart only knows
+they run the same image with a different command.
+*/}}
+{{- if kindIs "slice" .Values.extraProcesses }}
+{{- fail "extraProcesses is a map keyed by process name, not a list — replace `- name: worker` with `worker:`" }}
+{{- end }}
+{{- $flavourProcesses := include "django.flavourProcesses" . | fromYaml }}
+{{- $extraProcesses := .Values.extraProcesses | default dict }}
+{{- range $name, $_ := $extraProcesses }}
+{{- if hasKey $flavourProcesses $name }}
+{{- fail (printf "extraProcesses.%s collides with a process the celery/procrastinate block already renders — configure it there instead" $name) }}
+{{- end }}
+{{- end }}
+{{- $processes := merge (dict) $extraProcesses $flavourProcesses }}
+{{- range $name, $process := $processes }}
+{{- $process = default (dict) $process }}
+{{- if has $name (list "web" "migrate") }}
+{{- fail (printf "extraProcesses name %q is reserved by the chart's own workloads" $name) }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "django.fullname" $ }}-{{ $name }}
+  labels:
+    {{- include "django.componentLabels" (dict "root" $ "component" $name) | nindent 4 }}
+  {{- with (merge (dict) ($process.annotations | default dict) ($.Values.annotations | default dict)) }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ dig "replicas" 1 $process }}
+  revisionHistoryLimit: {{ $.Values.revisionHistoryLimit }}
+  {{- with $process.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "django.componentSelectorLabels" (dict "root" $ "component" $name) | nindent 6 }}
+  template:
+    metadata:
+      {{- include "django.podMetadata" (dict "root" $ "component" $name "process" $process) | trim | nindent 6 }}
+    spec:
+      {{- include "django.podSpec" (dict "root" $ "component" $name "process" $process) | trim | nindent 6 }}
+{{- end }}

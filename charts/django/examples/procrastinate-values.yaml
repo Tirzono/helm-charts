@@ -1,0 +1,77 @@
+---
+# A complete deployment: web, one Procrastinate worker, a CNPG database, an
+# existing secret and an ingress.
+#
+# The worker is not listed under extraProcesses — `procrastinate.enabled: true`
+# renders it, along with Procrastinate's own healthcheck probe.
+#
+# Files under examples/ are linted but never installed by CI, so they can
+# reference Secrets that only exist in a real cluster.
+
+image:
+  repository: ghcr.io/example/myapp
+  tag: "2026.08.12-1"
+
+imagePullSecrets:
+  - name: ghcr-docker-config
+
+web:
+  replicas: 2
+  command: ["gunicorn", "config.wsgi", "--bind", "0.0.0.0:8000"]
+  containerPort: 8000
+  readinessProbe:
+    httpGet:
+      path: /healthz/
+      port: http
+    initialDelaySeconds: 5
+  livenessProbe:
+    tcpSocket:
+      port: http
+    initialDelaySeconds: 15
+
+procrastinate:
+  enabled: true
+  worker:
+    replicas: 2
+    queues: [emails, default]
+    concurrency: 4
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+# CloudNativePG creates cluster-myapp-app with the app user's credentials.
+# The host points at the Pooler rather than the cluster service, which is why
+# it comes from values instead of the secret.
+database:
+  existingSecret: cluster-myapp-app
+  host: pooler-myapp-rw
+
+existingSecrets:
+  - myapp-secrets
+
+config:
+  DJANGO_SETTINGS_MODULE: config.settings.production
+  DJANGO_ALLOWED_HOSTS: app.example.com
+
+ingress:
+  enabled: true
+  className: cloudflare-tunnel
+  hosts:
+    - host: app.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 512Mi

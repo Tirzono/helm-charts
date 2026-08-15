@@ -1,12 +1,12 @@
 {{- if .Values.ingress.enabled }}
-{{- $fullName := include "example-app.fullname" . -}}
-{{- $svcPort := .Values.service.port -}}
+{{- $svcName := include "django.fullname" . }}
+{{- $svcPort := .Values.service.port }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ $fullName }}
+  name: {{ include "django.fullname" . }}
   labels:
-    {{- include "example-app.labels" . | nindent 4 }}
+    {{- include "django.componentLabels" (dict "root" . "component" "web") | nindent 4 }}
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -29,7 +29,7 @@ spec:
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ $fullName }}
+                name: {{ $svcName }}
                 port:
                   number: {{ $svcPort }}
           {{- end }}
