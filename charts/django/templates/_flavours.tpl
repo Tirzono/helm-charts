@@ -1,20 +1,25 @@
 {{/*
-Turns the `celery` values block into what the library chart already knows how
-to render: a list of processes and a few env entries.
+Opinionated defaults for the task frameworks Django apps usually run.
 
-Nothing here renders a resource. That is deliberate — the flavour's whole job
-is to write the boilerplate a Celery stack would otherwise repeat in every
-app's values file.
+Each block renders into the same `extraProcesses` entries and env the chart
+already understands — there is no separate code path, and nothing a block does
+is out of reach of writing the processes by hand. `celery.enabled: true` is a
+shorthand for the four or five list entries an app would otherwise repeat in
+every values file.
+
+Both blocks are off by default. Turning one on is what makes this chart
+"the Celery one" for that release.
 */}}
 
 {{/*
-The processes a Celery stack runs: worker, beat, flower. Emitted as a YAML list
-of entries shaped exactly like `extraProcesses`, so anything an extraProcesses
-entry accepts works in `celery.worker` and friends too.
+Processes the enabled flavours contribute, ahead of the user's extraProcesses.
+Emitted as a YAML list of entries shaped exactly like extraProcesses entries.
 */}}
-{{- define "django-celery.processes" -}}
-{{- $celery := .Values.celery -}}
+{{- define "django.flavourProcesses" -}}
 {{- $processes := list -}}
+
+{{- if .Values.celery.enabled }}
+{{- $celery := .Values.celery -}}
 
 {{- if $celery.worker.enabled }}
 {{- $command := list "celery" "-A" $celery.app "worker" "--loglevel" $celery.logLevel -}}
@@ -50,20 +55,41 @@ entry accepts works in `celery.worker` and friends too.
 {{- $processes = append $processes $flower -}}
 {{- end }}
 
+{{- end }}
+
+{{- if .Values.procrastinate.enabled }}
+{{- $procrastinate := .Values.procrastinate -}}
+{{- if $procrastinate.worker.enabled }}
+{{- $command := concat $procrastinate.manageCommand (list "procrastinate" "worker") -}}
+{{- with $procrastinate.worker.queues }}
+{{- $command = concat $command (list "--queues" (join "," .)) -}}
+{{- end }}
+{{- with $procrastinate.worker.concurrency }}
+{{- $command = concat $command (list "--concurrency" (. | toString)) -}}
+{{- end }}
+{{- $command = concat $command ($procrastinate.worker.extraArgs | default list) -}}
+{{- $worker := merge (dict) (omit $procrastinate.worker "enabled" "name" "command" "queues" "concurrency" "extraArgs") -}}
+{{- $_ := set $worker "name" $procrastinate.worker.name -}}
+{{- $_ := set $worker "command" (default $command $procrastinate.worker.command) -}}
+{{- $processes = append $processes $worker -}}
+{{- end }}
+{{- end }}
+
 {{- with $processes }}
 {{- toYaml . }}
 {{- end }}
 {{- end }}
 
 {{/*
-Broker and result backend env, added to every process — the web pod publishes
+Env the enabled flavours contribute to every process — the web pod publishes
 tasks, so it needs the broker as much as the workers do.
 
-Each is either a literal URL or a key in a Secret that already exists, matching
-how the base chart consumes every other connection.
+Added after the database env and before the shared `env`, so a user override
+always wins.
 */}}
-{{- define "django-celery.env" -}}
+{{- define "django.flavourEnv" -}}
 {{- $env := list -}}
+{{- if .Values.celery.enabled }}
 {{- with .Values.celery.app }}
 {{- $env = append $env (dict "name" "CELERY_APP" "value" .) -}}
 {{- end }}
@@ -73,6 +99,7 @@ how the base chart consumes every other connection.
 {{- $env = append $env (dict "name" $connection.envVar "valueFrom" (dict "secretKeyRef" (dict "name" $connection.existingSecret "key" $key))) -}}
 {{- else if $connection.url }}
 {{- $env = append $env (dict "name" $connection.envVar "value" $connection.url) -}}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- with $env }}

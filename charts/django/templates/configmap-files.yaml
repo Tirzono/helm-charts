@@ -1,1 +1,17 @@
-{{- include "django.configMapFiles" (dict "root" .) }}
+{{- if .Values.configFiles }}
+{{/*
+Files rather than env — a proxy config, a logging config. Kept separate from
+the settings ConfigMap because these are mounted, not loaded with envFrom.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "django.filesConfigMapName" . }}
+  labels:
+    {{- include "django.labels" . | nindent 4 }}
+data:
+  {{- range $name, $content := .Values.configFiles }}
+  {{ $name }}: |
+    {{- tpl $content $ | nindent 4 }}
+  {{- end }}
+{{- end }}

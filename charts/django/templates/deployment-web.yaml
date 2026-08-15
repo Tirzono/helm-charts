@@ -1,1 +1,27 @@
-{{- include "django.deployment.web" (dict "root" .) }}
+{{- $web := deepCopy .Values.web }}
+{{- $_ := set $web "ports" (list (dict "name" "http" "containerPort" (.Values.web.containerPort | int) "protocol" "TCP")) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "django.fullname" . }}-web
+  labels:
+    {{- include "django.componentLabels" (dict "root" . "component" "web") | nindent 4 }}
+  {{- with (merge (dict) (.Values.web.annotations | default dict) (.Values.annotations | default dict)) }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.web.replicas }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  {{- with .Values.web.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "django.componentSelectorLabels" (dict "root" . "component" "web") | nindent 6 }}
+  template:
+    metadata:
+      {{- include "django.podMetadata" (dict "root" . "component" "web" "process" $web) | trim | nindent 6 }}
+    spec:
+      {{- include "django.podSpec" (dict "root" . "component" "web" "process" $web) | trim | nindent 6 }}

@@ -38,17 +38,6 @@ jobs:
         with:
           version: v3.16.3
 
-      # chart-releaser packages charts as they are on disk, so the library
-      # dependency has to be vendored into each chart's charts/ directory first.
-      - name: Vendor chart dependencies
-        run: |
-          set -euo pipefail
-          for chart_dir in charts/*/; do
-            [[ -f "${chart_dir}Chart.yaml" ]] || continue
-            grep -q '^dependencies:' "${chart_dir}Chart.yaml" || continue
-            helm dependency update "$chart_dir"
-          done
-
       # Publishes one GitHub release per chart version (tagged <chart>-<version>)
       # and refreshes index.yaml on the gh-pages branch. Charts whose version was
       # already released are skipped, so bumping Chart.yaml version is what

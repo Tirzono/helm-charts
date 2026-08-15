@@ -1,9 +1,9 @@
 ---
-# Exercises the flavour: the worker rendered from the procrastinate block.
+# Exercises the procrastinate block: the worker rendered from it.
 #
 # The command is replaced with a sleep and the health check removed because the
-# CI image is not a Django app — what is being tested is that the flavour
-# produces the right process, not that Procrastinate runs.
+# CI image is not a Django app — what is being tested is that the block produces
+# the right process, not that Procrastinate runs.
 image:
   repository: python
   tag: "3.12-alpine"
@@ -21,6 +21,7 @@ web:
     initialDelaySeconds: 2
 
 procrastinate:
+  enabled: true
   worker:
     replicas: 1
     command: ["sleep", "3600"]

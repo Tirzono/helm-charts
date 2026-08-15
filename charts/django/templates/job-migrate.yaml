@@ -1,1 +1,37 @@
-{{- include "django.job.migrate" (dict "root" .) }}
+{{- if .Values.migrations.enabled }}
+{{/*
+Migrations run as a Helm hook so they finish before any Deployment rolls.
+Argo CD reads the same annotations and turns this into a PreSync hook, so the
+chart behaves the same way under `helm install` and under Argo.
+
+The hook runs before the release's own resources are created, which includes
+the ServiceAccount this chart creates — so the Job falls back to the namespace
+`default` ServiceAccount in that case. When the ServiceAccount is managed
+outside the chart (serviceAccount.create: false) it already exists, and the Job
+uses it, which is the case where the identity actually matters.
+*/}}
+{{- $serviceAccountName := ternary "default" (include "django.serviceAccountName" .) .Values.serviceAccount.create }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "django.fullname" . }}-migrate
+  labels:
+    {{- include "django.componentLabels" (dict "root" . "component" "migrate") | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    # A failed Job is kept so its logs can be read; the next release deletes it
+    # before creating the new one.
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.migrations.backoffLimit }}
+  {{- with .Values.migrations.activeDeadlineSeconds }}
+  activeDeadlineSeconds: {{ . }}
+  {{- end }}
+  template:
+    metadata:
+      {{- include "django.podMetadata" (dict "root" . "component" "migrate" "process" .Values.migrations) | trim | nindent 6 }}
+    spec:
+      restartPolicy: Never
+      {{- include "django.podSpec" (dict "root" . "component" "migrate" "process" .Values.migrations "serviceAccountName" $serviceAccountName) | trim | nindent 6 }}
+{{- end }}

@@ -1,1 +1,0 @@
-{{- include "django.deployment.web" (dict "root" .) }}

@@ -1,9 +1,9 @@
 ---
-# A complete deployment on this chart: web, one Procrastinate worker, a CNPG
-# database, an existing secret and an ingress.
+# A complete deployment: web, one Procrastinate worker, a CNPG database, an
+# existing secret and an ingress.
 #
-# The worker is not listed under extraProcesses — the procrastinate block below
-# renders it, which is the whole point of this chart over the base one.
+# The worker is not listed under extraProcesses — `procrastinate.enabled: true`
+# renders it, along with Procrastinate's own healthcheck probe.
 #
 # Files under examples/ are linted but never installed by CI, so they can
 # reference Secrets that only exist in a real cluster.
@@ -30,6 +30,7 @@ web:
     initialDelaySeconds: 15
 
 procrastinate:
+  enabled: true
   worker:
     replicas: 2
     queues: [emails, default]

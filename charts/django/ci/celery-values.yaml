@@ -1,6 +1,6 @@
 ---
-# Exercises the flavour: worker, beat and flower rendered from the celery block,
-# broker env on every process.
+# Exercises the celery block: worker, beat and flower rendered from it, broker
+# env on every process.
 #
 # The commands are replaced with sleeps because the CI image has no celery in
 # it — what is being tested here is that the flavour produces the right
@@ -22,6 +22,7 @@ web:
     initialDelaySeconds: 2
 
 celery:
+  enabled: true
   app: config
   broker:
     url: amqp://guest:guest@rabbitmq.example.svc.cluster.local:5672//

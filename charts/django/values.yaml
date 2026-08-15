@@ -270,6 +270,155 @@ web:
 extraProcesses: []
 
 # ---------------------------------------------------------------------------
+# Task frameworks
+#
+# Both blocks are off by default and render into the same extraProcesses
+# entries you would otherwise write by hand — there is no separate code path.
+# Turning one on is shorthand for the four or five list entries an app running
+# that framework repeats in every values file.
+#
+# Each process below accepts everything an extraProcesses entry accepts —
+# resources, replicas, env, annotations, probes, sidecars — because that is
+# what it becomes.
+#
+# If you somehow enable both, give the two workers distinct names: the chart
+# refuses to render two processes with the same name.
+# ---------------------------------------------------------------------------
+celery:
+  enabled: false
+
+  # The -A target: the module holding the Celery app. Also exported as
+  # CELERY_APP, which the worker's liveness probe uses.
+  app: config
+
+  logLevel: info
+
+  # The broker, and optionally a result backend. Both are external — RabbitMQ
+  # from its operator, Redis managed separately — so the chart consumes a URL,
+  # either literally or from a Secret that already exists:
+  #
+  # broker:
+  #   existingSecret: rabbitmqcluster-myapp-default-user
+  #   existingSecretKey: connection_string
+  broker:
+    envVar: CELERY_BROKER_URL
+    url: ""
+    existingSecret: ""
+    existingSecretKey: ""
+
+  resultBackend:
+    envVar: CELERY_RESULT_BACKEND
+    url: ""
+    existingSecret: ""
+    existingSecretKey: ""
+
+  worker:
+    enabled: true
+    name: worker
+    replicas: 2
+
+    # Queues this worker consumes (-Q). Empty means the default queue.
+    queues: []
+    # Worker processes per pod (-c). Empty leaves Celery's default, which is
+    # one per CPU — usually too many under a container CPU limit.
+    concurrency: ""
+    extraArgs: []
+    # Replaces the generated command entirely, for an image whose entrypoint
+    # already knows how to start a worker.
+    command: []
+
+    # `inspect ping` is the honest worker health check: it round-trips through
+    # the broker. Timings are deliberately slack — a busy worker with
+    # long-running tasks should not be restarted for answering slowly.
+    #
+    # Set it to `null` to turn it off. An empty map merges into the default
+    # rather than replacing it, which is Helm's behaviour for every default map
+    # in this chart.
+    livenessProbe:
+      exec:
+        command:
+          - sh
+          - -c
+          - celery -A $CELERY_APP inspect ping -d celery@$HOSTNAME
+      initialDelaySeconds: 60
+      periodSeconds: 120
+      timeoutSeconds: 30
+      failureThreshold: 3
+
+    resources: {}
+    env: []
+
+  beat:
+    enabled: true
+    name: beat
+    # More than one Beat means every scheduled task fires more than once,
+    # unless the app uses a locking scheduler such as redbeat.
+    replicas: 1
+    # Beat must not overlap itself across a rollout.
+    strategy:
+      type: Recreate
+    extraArgs: []
+    command: []
+    resources: {}
+    env: []
+
+  # The monitoring UI. Off by default — it is an extra surface, and the chart
+  # creates no Service for it, so reach it with a port-forward until something
+  # needs more.
+  flower:
+    enabled: false
+    name: flower
+    replicas: 1
+    port: 5555
+    extraArgs: []
+    command: []
+    resources: {}
+    env: []
+
+procrastinate:
+  enabled: false
+
+  # No broker and no schema step here on purpose. Wired through Django,
+  # Procrastinate stores jobs in the same Postgres the app already uses and
+  # ships its tables as Django migrations, so the migration hook below is the
+  # whole story.
+
+  # How this image invokes Django management commands. The default suits an
+  # image with manage.py on the path; an image with an entrypoint wrapper might
+  # use ["/app/manage.py"] or set worker.command outright.
+  manageCommand: ["python", "manage.py"]
+
+  worker:
+    enabled: true
+    name: worker
+    replicas: 1
+
+    # Queues this worker consumes (--queues). Empty means all of them.
+    queues: []
+    # Concurrent jobs per pod (--concurrency). Empty leaves Procrastinate's
+    # default.
+    concurrency: ""
+    extraArgs: []
+    # Replaces the generated command entirely.
+    command: []
+
+    # Procrastinate's own health check: it verifies the database connection,
+    # that migrations are applied, and that the app is importable. It starts a
+    # Django process each time, so the period is slack on purpose.
+    #
+    # Set it to `null` to turn it off — an empty map merges into the default.
+    livenessProbe:
+      exec:
+        command: ["python", "manage.py", "procrastinate", "healthchecks"]
+      initialDelaySeconds: 60
+      periodSeconds: 120
+      timeoutSeconds: 30
+      failureThreshold: 3
+
+    resources: {}
+    env: []
+
+# ---------------------------------------------------------------------------
 # Service
 # ---------------------------------------------------------------------------
 service:

@@ -1,2 +1,0 @@
-{{- $extraProcesses := include "django-procrastinate.processes" . | fromYamlArray }}
-{{- include "django.deployments.processes" (dict "root" . "extraProcesses" $extraProcesses) }}

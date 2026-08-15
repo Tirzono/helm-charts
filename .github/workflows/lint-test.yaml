@@ -6,7 +6,6 @@ on:
     paths:
       - 'charts/**'
       - 'ct.yaml'
-      - 'ct-install.yaml'
       - '.yamllint.yaml'
       - '.github/workflows/lint-test.yaml'
 
@@ -62,9 +61,6 @@ jobs:
             echo "No charts changed."
           fi
 
-      - name: Check shared values
-        run: ./scripts/check-shared-values.sh
-
       - name: Run chart-testing (lint)
         if: steps.list-changed.outputs.changed == 'true'
         run: ct lint --config ct.yaml
@@ -98,5 +94,4 @@ jobs:
         uses: helm/kind-action@v1.10.0
 
       - name: Run chart-testing (install)
-        # ct-install.yaml excludes the library chart, which is not installable.
-        run: ct install --config ct-install.yaml
+        run: ct install --config ct.yaml

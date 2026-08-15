@@ -1,2 +1,0 @@
-{{- $extraEnv := include "django-celery.env" . | fromYamlArray }}
-{{- include "django.deployment.web" (dict "root" . "extraEnv" $extraEnv) }}

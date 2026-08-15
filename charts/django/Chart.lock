@@ -1,6 +1,0 @@
-dependencies:
-- name: django-common
-  repository: file://../django-common
-  version: 0.1.0
-digest: sha256:220befd3183959bea7dd2ab1755e14197bbffee7cc137debe530b9a73b2c1b10
-generated: "2026-08-13T20:14:40.761958315Z"

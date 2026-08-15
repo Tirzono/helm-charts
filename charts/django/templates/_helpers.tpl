@@ -157,12 +157,12 @@ manifest. Takes the root context.
 
 {{/*
 Full env for one process, in precedence order — later entries win in Kubernetes,
-so the user's own env is last:
+so the user's own env comes last:
 
-  database env, anything a flavour chart computed, the shared env, the
+  database env, whatever the enabled flavours add, the shared env, the
   process's own env.
 
-Takes a dict of `root`, `process`, and an optional `extraEnv` list.
+Takes a dict of `root` and `process`.
 */}}
 {{- define "django.env" -}}
 {{- $root := .root -}}
@@ -171,7 +171,9 @@ Takes a dict of `root`, `process`, and an optional `extraEnv` list.
 {{- with (include "django.databaseEnv" $root) }}
 {{- $env = concat $env (. | fromYamlArray) -}}
 {{- end }}
-{{- $env = concat $env (.extraEnv | default list) -}}
+{{- with (include "django.flavourEnv" $root) }}
+{{- $env = concat $env (. | fromYamlArray) -}}
+{{- end }}
 {{- $env = concat $env ($root.Values.env | default list) -}}
 {{- $env = concat $env ($process.env | default list) -}}
 {{- with $env }}

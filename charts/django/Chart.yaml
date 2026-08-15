@@ -4,14 +4,6 @@ name: django
 description: Base chart for a Django app — a web Deployment plus any number of extra process Deployments, backed by an external Postgres
 type: application
 
-# All templates live in the library chart, which the opinionated flavours
-# (django-celery, django-procrastinate) render from as well. A change there
-# reaches this chart only when both versions are bumped.
-dependencies:
-  - name: django-common
-    version: 0.1.0
-    repository: file://../django-common
-
 # version is the chart version. Bump this on every change — the release
 # workflow only publishes versions that do not exist yet.
 version: 0.1.0
@@ -26,6 +18,8 @@ sources:
   - https://github.com/tirzono/helm-charts/tree/master/charts/django
 keywords:
   - django
+  - celery
+  - procrastinate
   - python
 maintainers:
   - name: tirzono

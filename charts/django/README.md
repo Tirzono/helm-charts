@@ -4,23 +4,14 @@ A base chart for a Django application: one web Deployment, any number of extra
 process Deployments, and a migration hook — against a Postgres that lives
 outside the chart.
 
-The chart deliberately knows nothing about task frameworks. A Celery worker, a
-Procrastinate worker, a scheduler, a websocket process and a Telegram bot are
-all the same thing from here: the same image, a different command. They are
-entries in a list, not templates.
+The templates deliberately know nothing about task frameworks. A Celery worker,
+a Procrastinate worker, a scheduler, a websocket process and a Telegram bot are
+all the same thing here: the same image, a different command. They are entries
+in a list, not templates.
 
-## Which chart
-
-| Chart | Use it when |
-| ----- | ----------- |
-| **django** (this one) | The processes are the app's own, or a mix nothing else models. |
-| [django-celery](../django-celery) | The app runs Celery — worker, Beat, optionally Flower. |
-| [django-procrastinate](../django-procrastinate) | The app runs a Procrastinate worker. |
-
-All three render from the same [django-common](../django-common) library, so
-everything below applies to all of them. The flavours only add a values block
-that writes their processes for you; anything they render, you can write by
-hand here.
+Two of them get a values shorthand — `celery` and `procrastinate`, both off by
+default — that writes those entries for you. It is only a shorthand: the
+processes it produces are the same list entries you would type yourself.
 
 ```console
 helm install myapp oci://ghcr.io/tirzono/charts/django --version 0.1.0 -f values.yaml
@@ -31,7 +22,7 @@ helm install myapp oci://ghcr.io/tirzono/charts/django --version 0.1.0 -f values
 | Resource | When |
 | -------- | ---- |
 | Deployment (web) | always |
-| Deployment (one per extra process) | for each entry in `extraProcesses` |
+| Deployment (one per extra process) | for each entry in `extraProcesses`, plus whatever `celery` / `procrastinate` add |
 | Service | always, `ClusterIP` by default |
 | Ingress | `ingress.enabled: true` |
 | ConfigMap (settings) | `config` is non-empty |
@@ -51,6 +42,7 @@ consumes connections.
 | `image` | The one image every process runs. |
 | `web` | The web process: command, replicas, port, probes, strategy. |
 | `extraProcesses` | A list; one Deployment per entry. Empty renders nothing. |
+| `celery`, `procrastinate` | Off by default. Shorthand that renders the usual processes for those frameworks. |
 | `service`, `ingress` | Networking. Both modes below are supported. |
 | `config` | Non-secret env, rendered into a ConfigMap. |
 | `configFiles` | Files rendered into a ConfigMap for mounting — a proxy config, for example. |
@@ -69,16 +61,16 @@ default at the top level of values.
 
 ```yaml
 extraProcesses:
-  - name: worker
-    command: ["python", "manage.py", "procrastinate", "worker"]
+  - name: websocket
+    command: ["daphne", "config.asgi:application"]
     replicas: 2
     resources:
       requests:
         cpu: 200m
         memory: 512Mi
 
-  - name: beat
-    command: ["celery", "-A", "config", "beat"]
+  - name: scheduler
+    command: ["python", "manage.py", "run_scheduler"]
     # One scheduler at a time, so it must not overlap itself during a rollout.
     strategy:
       type: Recreate
@@ -97,6 +89,75 @@ Each entry accepts `name`, `command`, `args`, `replicas`, `strategy`, `ports`,
 
 The chart does not create a Service for an extra process that declares `ports`.
 Nothing has needed one yet; it is a small addition when something does.
+
+## Task frameworks
+
+`extraProcesses` can express any worker you like, but the two frameworks these
+apps actually run have a shorthand, because otherwise every values file repeats
+the same four entries. Both are off by default:
+
+```yaml
+celery:
+  enabled: true
+  app: config
+  broker:
+    existingSecret: rabbitmqcluster-myapp-default-user
+    existingSecretKey: connection_string
+```
+
+That renders a `worker` Deployment (2 replicas, with an `inspect ping` liveness
+probe), a `beat` Deployment (1 replica, `Recreate` strategy), and `CELERY_APP` +
+`CELERY_BROKER_URL` on every process — the web pod included, since it is what
+publishes the tasks. Flower is available with `celery.flower.enabled: true`; no
+Service is created for it, so reach it with a port-forward.
+
+```yaml
+procrastinate:
+  enabled: true
+```
+
+That renders a `worker` running `python manage.py procrastinate worker`, with
+Procrastinate's own `healthchecks` command as a liveness probe. There is
+deliberately nothing else: wired through Django, Procrastinate needs no broker
+and ships its tables as Django migrations, so the `migrate` hook below already
+covers its schema.
+
+### Generated commands
+
+```
+celery worker    celery -A <app> worker --loglevel <level> [--queues a,b] [--concurrency N] [extraArgs]
+celery beat      celery -A <app> beat --loglevel <level> [extraArgs]
+celery flower    celery -A <app> flower --port=<port> [extraArgs]
+procrastinate    python manage.py procrastinate worker [--queues a,b] [--concurrency N] [extraArgs]
+```
+
+Set `command` on any of them to replace the generated one — the case for an
+image whose entrypoint already knows how to start a worker:
+
+```yaml
+celery:
+  worker:
+    command: ["worker"]
+```
+
+### They are just extraProcesses
+
+Each of these accepts everything an `extraProcesses` entry accepts —
+`replicas`, `resources`, `env`, `annotations`, `strategy`, `nodeSelector`, the
+probes, even `extraContainers` — because that is literally what they become.
+Anything the blocks render, you can write by hand instead; they exist to save
+the typing, not to unlock behaviour.
+
+Three notes:
+
+- Turn a default probe off with `livenessProbe: null`, not `{}`. An empty map
+  merges into the chart's default rather than replacing it — Helm's behaviour
+  for every default map here.
+- `celery.beat.replicas` is 1 for a reason: two Beats fire every scheduled task
+  twice. The chart does not stop you raising it, because an app using a locking
+  scheduler such as redbeat legitimately can.
+- Enabling both blocks at once collides — each names its worker `worker`. Give
+  one of them a different `name`.
 
 ## Sidecars and static files
 
@@ -261,9 +322,11 @@ exists and the Job uses it.
 
 - [`procrastinate-worker-values.yaml`](examples/procrastinate-worker-values.yaml)
   — one web process and one Procrastinate worker.
-- [`celery-stack-values.yaml`](examples/celery-stack-values.yaml) — Celery
-  workers, Celery Beat, a websocket process and a bot, with an external broker
-  and cache.
+- [`celery-values.yaml`](examples/celery-values.yaml) — the full Celery stack
+  with an external RabbitMQ and Redis, plus a process Celery knows nothing
+  about, and a static-files sidecar.
+- [`procrastinate-values.yaml`](examples/procrastinate-values.yaml) — a
+  Procrastinate worker against a CNPG database.
 - [`caddy-static-values.yaml`](examples/caddy-static-values.yaml) — a Caddy
   sidecar serving `/media/` from object storage in front of the app.
 
@@ -276,7 +339,6 @@ Secrets that only exist in a real cluster.
 ../../scripts/lint-charts.sh django
 ```
 
-The templates live in [django-common](../django-common); this chart is its
-values file and a set of one-line calls into it. `values.yaml` here is the
-canonical copy of the base values — the flavour charts carry it verbatim, kept
-honest by `scripts/check-shared-values.sh`.
+`ci/` values are installed against a real kind cluster by CI; `examples/` values
+are linted only, so they can reference Secrets that exist just in a real
+namespace.

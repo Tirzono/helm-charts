@@ -2,6 +2,9 @@
 # The full Celery stack: worker, Beat and Flower against an external RabbitMQ
 # and Redis, with a static-files sidecar in front of the web process.
 #
+# `celery.enabled: true` is what turns this release into a Celery deployment —
+# it renders the same extraProcesses entries you would otherwise write out.
+#
 # Files under examples/ are linted but never installed by CI, so they can
 # reference Secrets that only exist in a real cluster.
 
@@ -16,6 +19,7 @@ annotations:
   reloader.stakater.com/auto: "true"
 
 celery:
+  enabled: true
   app: config
   logLevel: info
 
