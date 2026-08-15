@@ -9,6 +9,9 @@ lists wholesale.
 What each process does is the application's business — the chart only knows
 they run the same image with a different command.
 */}}
+{{- if kindIs "slice" .Values.extraProcesses }}
+{{- fail "extraProcesses is a map keyed by process name, not a list — replace `- name: worker` with `worker:`" }}
+{{- end }}
 {{- $flavourProcesses := include "django.flavourProcesses" . | fromYaml }}
 {{- $extraProcesses := .Values.extraProcesses | default dict }}
 {{- range $name, $_ := $extraProcesses }}
