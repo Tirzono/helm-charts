@@ -1,21 +1,27 @@
 {{/*
-One Deployment per process: whatever the enabled flavour blocks contribute
-first, then every entry in extraProcesses. Nothing renders when there are none.
+One Deployment per process: every key under extraProcesses, plus whatever the
+enabled task-framework blocks contribute. Nothing renders when there are none.
+
+extraProcesses is a map rather than a list so a second values file can override
+one process without restating the rest — Helm deep-merges maps but replaces
+lists wholesale.
 
 What each process does is the application's business — the chart only knows
 they run the same image with a different command.
 */}}
-{{- $processes := concat (include "django.flavourProcesses" . | fromYamlArray) (.Values.extraProcesses | default list) }}
-{{- $seen := dict }}
-{{- range $process := $processes }}
-{{- $name := required "each extraProcesses entry needs a name" $process.name }}
+{{- $flavourProcesses := include "django.flavourProcesses" . | fromYaml }}
+{{- $extraProcesses := .Values.extraProcesses | default dict }}
+{{- range $name, $_ := $extraProcesses }}
+{{- if hasKey $flavourProcesses $name }}
+{{- fail (printf "extraProcesses.%s collides with a process the celery/procrastinate block already renders — configure it there instead" $name) }}
+{{- end }}
+{{- end }}
+{{- $processes := merge (dict) $extraProcesses $flavourProcesses }}
+{{- range $name, $process := $processes }}
+{{- $process = default (dict) $process }}
 {{- if has $name (list "web" "migrate") }}
 {{- fail (printf "extraProcesses name %q is reserved by the chart's own workloads" $name) }}
 {{- end }}
-{{- if hasKey $seen $name }}
-{{- fail (printf "extraProcesses has more than one entry named %q" $name) }}
-{{- end }}
-{{- $_ := set $seen $name true }}
 ---
 apiVersion: apps/v1
 kind: Deployment

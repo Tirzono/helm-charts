@@ -1,0 +1,13 @@
+{{/*
+Arbitrary manifests shipped with the release — the standard escape hatch for
+whatever the chart does not render itself: a Service in front of a dashboard
+process, a PodDisruptionBudget, a NetworkPolicy.
+
+Entries may be objects or strings, and both are run through `tpl`. A string is
+the more useful form for anything that needs templating beyond a quoted scalar,
+because a values file has to stay valid YAML.
+*/}}
+{{- range .Values.extraObjects }}
+---
+{{ if kindIs "string" . }}{{ tpl . $ }}{{ else }}{{ tpl (toYaml .) $ }}{{ end }}
+{{- end }}

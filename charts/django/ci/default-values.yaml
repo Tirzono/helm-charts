@@ -22,7 +22,7 @@ config:
   DJANGO_SETTINGS_MODULE: config.settings.production
 
 extraProcesses:
-  - name: worker
+  worker:
     command: ["sleep", "3600"]
 
 migrations:

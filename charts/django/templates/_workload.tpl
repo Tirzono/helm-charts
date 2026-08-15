@@ -12,8 +12,9 @@ Takes a dict:
   serviceAccountName
              optional; defaults to the release's ServiceAccount.
 
-`extraContainers`, `volumes` and `volumeMounts` are run through `tpl`, so a
-values file can name a chart-generated object, e.g. the files ConfigMap:
+`sidecars`, `initContainers`, `volumes` and `volumeMounts` are run through
+`tpl`, so a values file can name a chart-generated object, e.g. the files
+ConfigMap:
 
     volumes:
       - name: proxy-config
@@ -35,6 +36,10 @@ serviceAccountName: {{ $serviceAccountName }}
 {{- with $root.Values.podSecurityContext }}
 securityContext:
   {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with (concat ($root.Values.initContainers | default list) ($process.initContainers | default list)) }}
+initContainers:
+  {{- tpl (toYaml .) $root | nindent 2 }}
 {{- end }}
 containers:
   - name: {{ $component }}
@@ -84,7 +89,7 @@ containers:
     volumeMounts:
       {{- tpl (toYaml .) $root | nindent 6 }}
     {{- end }}
-  {{- with $process.extraContainers }}
+  {{- with $process.sidecars }}
   {{- tpl (toYaml .) $root | nindent 2 }}
   {{- end }}
 {{- with (concat ($root.Values.volumes | default list) ($process.volumes | default list)) }}

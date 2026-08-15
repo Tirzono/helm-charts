@@ -21,7 +21,7 @@ service:
 ingress:
   enabled: false
 
-extraProcesses: []
+extraProcesses: {}
 
 migrations:
   enabled: false

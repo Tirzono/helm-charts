@@ -41,7 +41,7 @@ consumes connections.
 | ----- | -------------- |
 | `image` | The one image every process runs. |
 | `web` | The web process: command, replicas, port, probes, strategy. |
-| `extraProcesses` | A list; one Deployment per entry. Empty renders nothing. |
+| `extraProcesses` | A map keyed by process name; one Deployment per entry. Empty renders nothing. |
 | `celery`, `procrastinate` | Off by default. Shorthand that renders the usual processes for those frameworks. |
 | `service`, `ingress` | Networking. Both modes below are supported. |
 | `config` | Non-secret env, rendered into a ConfigMap. |
@@ -50,18 +50,19 @@ consumes connections.
 | `database` | Host and name from values, credentials from an existing Secret. |
 | `env` | Extra env for every process, `valueFrom` included. |
 | `migrations` | The migration hook. |
-| Shared defaults | `resources`, `podSecurityContext`, `securityContext`, `nodeSelector`, `tolerations`, `affinity`, `volumes`, `volumeMounts`, `annotations`, `podAnnotations`, `podLabels` — applied to every process, overridable per process. |
+| `extraObjects` | Manifests to ship with the release that the chart does not render itself. |
+| Shared defaults | `resources`, `podSecurityContext`, `securityContext`, `nodeSelector`, `tolerations`, `affinity`, `volumes`, `volumeMounts`, `initContainers`, `annotations`, `podAnnotations`, `podLabels` — applied to every process, overridable per process. |
 
 Every key is commented in [values.yaml](values.yaml).
 
 ## Extra processes
 
-Only `name` and `command` are required. Anything else falls back to the shared
-default at the top level of values.
+A map keyed by process name. Only `command` is required; anything else falls
+back to the shared default at the top level of values.
 
 ```yaml
 extraProcesses:
-  - name: websocket
+  websocket:
     command: ["daphne", "config.asgi:application"]
     replicas: 2
     resources:
@@ -69,26 +70,39 @@ extraProcesses:
         cpu: 200m
         memory: 512Mi
 
-  - name: scheduler
+  scheduler:
     command: ["python", "manage.py", "run_scheduler"]
     # One scheduler at a time, so it must not overlap itself during a rollout.
     strategy:
       type: Recreate
 
-  - name: bot
+  bot:
     command: ["python", "manage.py", "run_bot"]
     env:
       - name: BOT_MODE
         value: polling
 ```
 
-Each entry accepts `name`, `command`, `args`, `replicas`, `strategy`, `ports`,
-`resources`, `env`, `extraContainers`, `annotations`, `podAnnotations`,
-`podLabels`, `volumes`, `volumeMounts`, `nodeSelector`, `tolerations`,
-`affinity`, and the three probes.
+**A map, not a list, on purpose.** Helm deep-merges maps across values files but
+replaces lists wholesale. With two clusters sharing a base values file, a
+per-cluster file can say:
 
-The chart does not create a Service for an extra process that declares `ports`.
-Nothing has needed one yet; it is a small addition when something does.
+```yaml
+extraProcesses:
+  websocket:
+    replicas: 1
+```
+
+and change nothing else. Written as a list, that same file would silently delete
+`scheduler` and `bot` and drop `websocket`'s command.
+
+Each entry accepts `command`, `args`, `replicas`, `strategy`, `ports`,
+`resources`, `env`, `sidecars`, `initContainers`, `annotations`,
+`podAnnotations`, `podLabels`, `volumes`, `volumeMounts`, `nodeSelector`,
+`tolerations`, `affinity`, and the three probes.
+
+The chart does not create a Service for an extra process that declares `ports` —
+add one through `extraObjects` if something needs to reach it.
 
 ## Task frameworks
 
@@ -144,7 +158,7 @@ celery:
 
 Each of these accepts everything an `extraProcesses` entry accepts —
 `replicas`, `resources`, `env`, `annotations`, `strategy`, `nodeSelector`, the
-probes, even `extraContainers` — because that is literally what they become.
+probes, even `sidecars` — because that is literally what they become.
 Anything the blocks render, you can write by hand instead; they exist to save
 the typing, not to unlock behaviour.
 
@@ -157,7 +171,9 @@ Three notes:
   twice. The chart does not stop you raising it, because an app using a locking
   scheduler such as redbeat legitimately can.
 - Enabling both blocks at once collides — each names its worker `worker`. Give
-  one of them a different `name`.
+  one of them a different `name`. The same applies to an `extraProcesses` key
+  that matches a name a block already renders: the chart fails rather than
+  quietly merging the two.
 
 ## Sidecars and static files
 
@@ -170,7 +186,7 @@ web:
   # The port the application itself listens on, now behind the proxy.
   containerPort: 5000
 
-  extraContainers:
+  sidecars:
     - name: proxy
       image: caddy:2.10.2-alpine
       ports:
@@ -200,8 +216,8 @@ configFiles:
     }
 ```
 
-`extraContainers`, `volumes` and `volumeMounts` are rendered through `tpl`, so
-values can name chart-generated objects — which is how the volume above finds
+`sidecars`, `initContainers`, `volumes` and `volumeMounts` are rendered through
+`tpl`, so values can name chart-generated objects — which is how the volume above finds
 the ConfigMap without knowing the release name. Contents of `configFiles` go
 through `tpl` as well; Caddy's single-brace placeholders (`{uri}`) pass through
 untouched, but a literal `{{` in a config file would need escaping.
@@ -209,8 +225,11 @@ untouched, but a literal `{{` in a config file would need escaping.
 Pods roll when a mounted file changes: `configFiles` is hashed into a
 `checksum/files` pod annotation, the same way `config` is.
 
-`extraContainers` works on any process, not just `web` — the same field on an
-`extraProcesses` entry adds a sidecar to that process.
+`sidecars` works on any process, not just `web` — the same field on an
+`extraProcesses` entry adds a sidecar to that process. There is no shared
+`sidecars` default on purpose: a sidecar that never exits would stop the
+migration Job from completing. `initContainers` does have one, since init
+containers exit.
 
 A worked example is in
 [`examples/caddy-static-values.yaml`](examples/caddy-static-values.yaml), and
@@ -223,6 +242,31 @@ Two things to watch:
   probe on the app cannot name the sidecar's port.
 - Port names are unique per pod: the app keeps `http`, the sidecar needs its own
   name.
+
+## Anything the chart does not render
+
+`extraObjects` ships arbitrary manifests with the release. Entries may be
+objects or strings; both go through `tpl`, and the string form is the useful one
+when the manifest needs more templating than a quoted scalar allows:
+
+```yaml
+extraObjects:
+  - |
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: {{ include "django.fullname" . }}-flower
+      labels:
+        {{- include "django.labels" . | nindent 8 }}
+    spec:
+      selector:
+        {{- include "django.componentSelectorLabels" (dict "root" . "component" "flower") | nindent 8 }}
+      ports:
+        - port: 5555
+```
+
+That is how a dashboard process gets a Service, or a release gets a
+PodDisruptionBudget, without the chart growing a template for each.
 
 ## Database
 

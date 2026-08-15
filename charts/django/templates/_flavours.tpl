@@ -4,19 +4,19 @@ Opinionated defaults for the task frameworks Django apps usually run.
 Each block renders into the same `extraProcesses` entries and env the chart
 already understands — there is no separate code path, and nothing a block does
 is out of reach of writing the processes by hand. `celery.enabled: true` is a
-shorthand for the four or five list entries an app would otherwise repeat in
-every values file.
+shorthand for the four or five entries an app would otherwise repeat in every
+values file.
 
 Both blocks are off by default. Turning one on is what makes this chart
 "the Celery one" for that release.
 */}}
 
 {{/*
-Processes the enabled flavours contribute, ahead of the user's extraProcesses.
-Emitted as a YAML list of entries shaped exactly like extraProcesses entries.
+Processes the enabled flavours contribute, as a map keyed by process name —
+the same shape as extraProcesses.
 */}}
 {{- define "django.flavourProcesses" -}}
-{{- $processes := list -}}
+{{- $processes := dict -}}
 
 {{- if .Values.celery.enabled }}
 {{- $celery := .Values.celery -}}
@@ -31,28 +31,25 @@ Emitted as a YAML list of entries shaped exactly like extraProcesses entries.
 {{- end }}
 {{- $command = concat $command ($celery.worker.extraArgs | default list) -}}
 {{- $worker := merge (dict) (omit $celery.worker "enabled" "name" "command" "queues" "concurrency" "extraArgs") -}}
-{{- $_ := set $worker "name" $celery.worker.name -}}
 {{- $_ := set $worker "command" (default $command $celery.worker.command) -}}
-{{- $processes = append $processes $worker -}}
+{{- $_ := set $processes $celery.worker.name $worker -}}
 {{- end }}
 
 {{- if $celery.beat.enabled }}
 {{- $command := list "celery" "-A" $celery.app "beat" "--loglevel" $celery.logLevel -}}
 {{- $command = concat $command ($celery.beat.extraArgs | default list) -}}
 {{- $beat := merge (dict) (omit $celery.beat "enabled" "name" "command" "extraArgs") -}}
-{{- $_ := set $beat "name" $celery.beat.name -}}
 {{- $_ := set $beat "command" (default $command $celery.beat.command) -}}
-{{- $processes = append $processes $beat -}}
+{{- $_ := set $processes $celery.beat.name $beat -}}
 {{- end }}
 
 {{- if $celery.flower.enabled }}
 {{- $command := list "celery" "-A" $celery.app "flower" (printf "--port=%v" $celery.flower.port) -}}
 {{- $command = concat $command ($celery.flower.extraArgs | default list) -}}
 {{- $flower := merge (dict) (omit $celery.flower "enabled" "name" "command" "port" "extraArgs") -}}
-{{- $_ := set $flower "name" $celery.flower.name -}}
 {{- $_ := set $flower "command" (default $command $celery.flower.command) -}}
 {{- $_ := set $flower "ports" (list (dict "name" "flower" "containerPort" ($celery.flower.port | int) "protocol" "TCP")) -}}
-{{- $processes = append $processes $flower -}}
+{{- $_ := set $processes $celery.flower.name $flower -}}
 {{- end }}
 
 {{- end }}
@@ -69,9 +66,8 @@ Emitted as a YAML list of entries shaped exactly like extraProcesses entries.
 {{- end }}
 {{- $command = concat $command ($procrastinate.worker.extraArgs | default list) -}}
 {{- $worker := merge (dict) (omit $procrastinate.worker "enabled" "name" "command" "queues" "concurrency" "extraArgs") -}}
-{{- $_ := set $worker "name" $procrastinate.worker.name -}}
 {{- $_ := set $worker "command" (default $command $procrastinate.worker.command) -}}
-{{- $processes = append $processes $worker -}}
+{{- $_ := set $processes $procrastinate.worker.name $worker -}}
 {{- end }}
 {{- end }}
 

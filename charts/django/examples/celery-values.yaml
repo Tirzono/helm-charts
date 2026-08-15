@@ -54,7 +54,7 @@ celery:
 
 # A process Celery knows nothing about still goes in the generic list.
 extraProcesses:
-  - name: websocket
+  websocket:
     command: ["websocket"]
     replicas: 1
 
@@ -72,7 +72,7 @@ web:
   replicas: 3
   command: ["web"]
   containerPort: 5000
-  extraContainers:
+  sidecars:
     - name: proxy
       image: caddy:2.10.2-alpine
       ports:

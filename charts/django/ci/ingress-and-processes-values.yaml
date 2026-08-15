@@ -31,18 +31,18 @@ config:
   DJANGO_ALLOWED_HOSTS: django.ci.local
 
 extraProcesses:
-  - name: worker
+  worker:
     command: ["sleep", "3600"]
     replicas: 2
     resources:
       requests:
         cpu: 20m
         memory: 64Mi
-  - name: scheduler
+  scheduler:
     command: ["sleep", "3600"]
     strategy:
       type: Recreate
-  - name: consumer
+  consumer:
     command: ["sleep", "3600"]
     env:
       - name: QUEUE

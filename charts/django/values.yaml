@@ -20,6 +20,9 @@ fullnameOverride: ""
 
 serviceAccount:
   create: true
+  # Mounts the API token into every pod. Django apps rarely talk to the API
+  # server; set false unless something in the pod needs it.
+  automount: true
   annotations: {}
   # If not set and create is true, a name is generated from the fullname template.
   name: ""
@@ -75,6 +78,19 @@ affinity: {}
 # Extra volumes and mounts added to every process.
 volumes: []
 volumeMounts: []
+
+# Init containers added to every process, ahead of any a process defines
+# itself. The usual case is waiting on something — a database, a migration:
+#
+# initContainers:
+#   - name: wait-for-db
+#     image: busybox:1.36
+#     command: ["sh", "-c", "until nc -z $DATABASE_HOST $DATABASE_PORT; do sleep 2; done"]
+#
+# There is no shared `sidecars` counterpart on purpose: a sidecar that never
+# exits would stop the migration Job from ever completing. Sidecars are set per
+# process — see web.sidecars.
+initContainers: []
 
 # Environment added to every process. Entries are plain container env, so
 # valueFrom works — which is how connections other than Postgres arrive:
@@ -204,7 +220,7 @@ web:
   # front of the app to serve static and media files, which is a deployment
   # concern rather than something the chart should model:
   #
-  # extraContainers:
+  # sidecars:
   #   - name: proxy
   #     image: caddy:2.10.2-alpine
   #     ports:
@@ -219,9 +235,13 @@ web:
   # With a sidecar in front, point service.targetPort at the sidecar's port and
   # leave containerPort as the port the application itself listens on.
   #
-  # extraContainers, volumes and volumeMounts are run through `tpl`, so they
-  # can name chart-generated objects — see examples/caddy-static-values.yaml.
-  extraContainers: []
+  # sidecars, initContainers, volumes and volumeMounts are run through `tpl`,
+  # so they can name chart-generated objects — see
+  # examples/caddy-static-values.yaml.
+  sidecars: []
+
+  # Init containers for this process only, after the shared ones above.
+  initContainers: []
 
   # Overrides of the shared defaults above. Anything left out falls back.
   resources: {}
@@ -242,32 +262,40 @@ web:
 # command. What the process *is* — a task worker, a scheduler, a queue
 # consumer, a dashboard — is an application concern, not a chart concern.
 #
-# Only `name` and `command` are required; everything else falls back to the
-# shared defaults. An empty list renders nothing.
+# A map keyed by process name, not a list: Helm deep-merges maps but replaces
+# lists wholesale, so with a map a per-cluster values file can change one
+# process without restating the others. With a list, a second file that set
+# only `replicas` would silently drop every other process and every other
+# field.
+#
+# Only `command` is required; everything else falls back to the shared
+# defaults. An empty map renders nothing.
 #
 # extraProcesses:
-#   - name: worker
+#   worker:
 #     command: ["python", "manage.py", "worker"]
 #     replicas: 2
 #     resources:
 #       requests:
 #         cpu: 200m
 #         memory: 512Mi
-#   - name: scheduler
+#
+#   scheduler:
 #     command: ["python", "manage.py", "scheduler"]
 #     replicas: 1
 #     # Schedulers usually must not overlap with themselves during a rollout.
 #     strategy:
 #       type: Recreate
-#   - name: dashboard
+#
+#   dashboard:
 #     command: ["celery", "flower"]
 #     # A process may declare ports; the chart does not create a Service for
-#     # it, so reach it with a port-forward or add one alongside the release.
+#     # it, so reach it with a port-forward or add one through extraObjects.
 #     ports:
 #       - name: http
 #         containerPort: 5555
 #         protocol: TCP
-extraProcesses: []
+extraProcesses: {}
 
 # ---------------------------------------------------------------------------
 # Task frameworks
@@ -486,6 +514,29 @@ migrations:
   nodeSelector: {}
   tolerations: []
   affinity: {}
+
+# Manifests to ship alongside the release, for anything the chart does not
+# render itself — a Service in front of a dashboard process, a
+# PodDisruptionBudget, a NetworkPolicy.
+#
+# Entries may be objects or strings; both are run through `tpl`. Prefer the
+# string form when the manifest needs templating beyond a quoted scalar, since
+# a values file itself has to stay valid YAML:
+#
+# extraObjects:
+#   - |
+#     apiVersion: policy/v1
+#     kind: PodDisruptionBudget
+#     metadata:
+#       name: {{ include "django.fullname" . }}-web
+#       labels:
+#         {{- include "django.labels" . | nindent 8 }}
+#     spec:
+#       minAvailable: 1
+#       selector:
+#         matchLabels:
+#           {{- include "django.componentSelectorLabels" (dict "root" . "component" "web") | nindent 10 }}
+extraObjects: []
 
 # Renders a `helm test` Pod that fetches the web Service. Turn off for an app
 # whose root URL needs authentication.

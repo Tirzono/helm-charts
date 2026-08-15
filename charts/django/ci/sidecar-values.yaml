@@ -15,7 +15,7 @@ web:
   command: ["python", "-m", "http.server", "8000"]
   containerPort: 8000
 
-  extraContainers:
+  sidecars:
     - name: proxy
       image: caddy:2.10.2-alpine
       imagePullPolicy: IfNotPresent
