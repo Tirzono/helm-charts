@@ -26,6 +26,7 @@ helm install myapp oci://ghcr.io/tirzono/charts/django --version 0.1.0 -f values
 | Service | always, `ClusterIP` by default |
 | Ingress | `ingress.enabled: true` |
 | ConfigMap (settings) | `config` is non-empty |
+| ConfigMap (settings, for the migration hook) | `config` is non-empty and `migrations.enabled: true`, as a `pre-install,pre-upgrade` hook |
 | ConfigMap (mounted files) | `configFiles` is non-empty |
 | Job (`manage.py migrate`) | `migrations.enabled: true`, as a `pre-install,pre-upgrade` hook |
 | ServiceAccount | `serviceAccount.create: true` |
@@ -359,6 +360,19 @@ The hook runs before the release's own ServiceAccount exists, so the Job uses
 the namespace `default` ServiceAccount when the chart creates the
 ServiceAccount. With `serviceAccount.create: false` the named account already
 exists and the Job uses it.
+
+For the same reason the Job cannot read the settings ConfigMap: hooks run ahead
+of the release's ordinary resources, so on a first install it does not exist
+yet. The chart renders a second copy at weight `-10`, `<release>-migrate-config`,
+and points the Job's `envFrom` at that. Both are deleted once the release
+succeeds; a failed Job keeps its input alongside its logs.
+
+Anything the Job reads that the chart does *not* render has to exist before the
+release — `existingSecrets`, `existingConfigMaps`, and the database Secret are
+all somebody else's to create, which the chart already assumes. `configFiles`
+is the one gap: it is an ordinary ConfigMap, so a `migrations.volumeMounts`
+pointing at it will not resolve on a first install. Mount it on the processes
+that need it rather than on the shared defaults.
 
 ## Examples
 

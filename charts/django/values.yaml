@@ -109,6 +109,10 @@ env: []
 # Values are quoted, so numbers and booleans arrive as strings — which is what
 # Django's env parsing expects anyway.
 #
+# The migration hook runs before that ConfigMap exists, so the chart renders a
+# second copy of these settings as a hook of its own and points the Job at it.
+# Nothing to configure; see the Migrations section of the README.
+#
 # config:
 #   DJANGO_SETTINGS_MODULE: config.settings.production
 #   DJANGO_ALLOWED_HOSTS: app.example.com

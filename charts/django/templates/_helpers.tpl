@@ -88,10 +88,33 @@ Name of the ConfigMap holding the non-secret settings.
 {{- end }}
 
 {{/*
+Name of the ConfigMap the migration hook reads.
+
+The settings ConfigMap above is an ordinary resource, so it is created after
+the hooks that run ahead of the release — Helm creates hooks first, and Argo CD
+runs the same annotations as a PreSync phase before it applies anything else.
+A hook therefore cannot read it, and the migration Job gets its own copy in the
+hook phase instead. See configmap-migrate.yaml.
+*/}}
+{{- define "django.migrateConfigMapName" -}}
+{{- printf "%s-migrate-config" (include "django.fullname" .) }}
+{{- end }}
+
+{{/*
 Name of the ConfigMap holding mounted files.
 */}}
 {{- define "django.filesConfigMapName" -}}
 {{- printf "%s-files" (include "django.fullname" .) }}
+{{- end }}
+
+{{/*
+The `config` values as ConfigMap data, so the settings ConfigMap and the
+migration hook's copy of it cannot drift apart. Emitted at column 0.
+*/}}
+{{- define "django.configData" -}}
+{{- range $key, $value := .Values.config }}
+{{ $key }}: {{ $value | quote }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -105,16 +128,26 @@ The application image. One image runs every process in the chart.
 envFrom sources shared by every process: the chart's own ConfigMap, then any
 existing ConfigMaps, then any existing Secrets. Order matters — later sources
 win on duplicate keys, so a Secret always beats non-secret config.
+
+The migrate component reads the hook's copy of the settings instead of the
+ordinary ConfigMap, which does not exist yet while hooks are running. Only the
+chart's own ConfigMap is swapped: existingConfigMaps and existingSecrets are
+someone else's to create, and the chart already requires them to be there.
+
+Takes a dict of `root` and `component`.
 */}}
 {{- define "django.envFrom" -}}
+{{- $root := .root -}}
+{{- $component := .component -}}
 {{- $sources := list -}}
-{{- if .Values.config }}
-{{- $sources = append $sources (dict "configMapRef" (dict "name" (include "django.configMapName" .))) -}}
+{{- if $root.Values.config }}
+{{- $configMap := ternary (include "django.migrateConfigMapName" $root) (include "django.configMapName" $root) (eq $component "migrate") -}}
+{{- $sources = append $sources (dict "configMapRef" (dict "name" $configMap)) -}}
 {{- end }}
-{{- range .Values.existingConfigMaps }}
+{{- range $root.Values.existingConfigMaps }}
 {{- $sources = append $sources (dict "configMapRef" (dict "name" .)) -}}
 {{- end }}
-{{- range .Values.existingSecrets }}
+{{- range $root.Values.existingSecrets }}
 {{- $sources = append $sources (dict "secretRef" (dict "name" .)) -}}
 {{- end }}
 {{- with $sources }}

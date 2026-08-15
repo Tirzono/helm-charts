@@ -6,7 +6,7 @@ type: application
 
 # version is the chart version. Bump this on every change — the release
 # workflow only publishes versions that do not exist yet.
-version: 0.1.0
+version: 0.1.1
 
 # appVersion normally tracks the deployed application. This chart is a base:
 # the application image comes from values and differs per app, so appVersion
