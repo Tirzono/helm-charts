@@ -61,7 +61,7 @@ containers:
     ports:
       {{- toYaml . | nindent 6 }}
     {{- end }}
-    {{- with include "django.envFrom" $root }}
+    {{- with include "django.envFrom" (dict "root" $root "component" $component) }}
     envFrom:
       {{- . | nindent 6 }}
     {{- end }}

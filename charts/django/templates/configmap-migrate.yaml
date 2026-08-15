@@ -1,0 +1,31 @@
+{{- if and .Values.config .Values.migrations.enabled }}
+{{/*
+The migration hook's own copy of the settings.
+
+Hooks run ahead of the release's ordinary resources: Helm executes them before
+it installs anything, and Argo CD turns the same annotations into a PreSync
+phase that finishes before the Sync phase begins. So the Job below cannot read
+configmap.yaml next door — on a first install it does not exist yet, and the
+Job fails with `configmap "<release>-config" not found`.
+
+An upgrade hides this, because the ConfigMap is still there from the release
+before. Only the first install fails, which is exactly the install nobody
+tests twice.
+
+Weight -10 puts this ahead of the Job at -5, and both are deleted once the
+release succeeds. A failed Job keeps its input as well as its logs, which is
+the state worth debugging.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "django.migrateConfigMapName" . }}
+  labels:
+    {{- include "django.componentLabels" (dict "root" . "component" "migrate") | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+data:
+  {{- include "django.configData" . | trim | nindent 2 }}
+{{- end }}

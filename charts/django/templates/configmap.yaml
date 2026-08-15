@@ -6,7 +6,5 @@ metadata:
   labels:
     {{- include "django.labels" . | nindent 4 }}
 data:
-  {{- range $key, $value := .Values.config }}
-  {{ $key }}: {{ $value | quote }}
-  {{- end }}
+  {{- include "django.configData" . | trim | nindent 2 }}
 {{- end }}
