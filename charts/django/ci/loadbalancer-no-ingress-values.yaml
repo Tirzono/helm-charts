@@ -2,6 +2,13 @@
 # The other networking mode: no ingress controller at all, service exposed
 # directly. Also the minimal case — zero extra processes, no config, no
 # database, migrations off.
+#
+# NodePort rather than the LoadBalancer the README shows for this mode. kind
+# has no load balancer implementation, so `helm install --wait` waits for an
+# external IP that never comes and this job times out after ten minutes with
+# every pod Ready — which it did on every run from #8 on. NodePort takes the
+# same path through the template (`service.type` is passed straight through)
+# and needs nothing the cluster does not have.
 image:
   repository: python
   tag: "3.12-alpine"
@@ -15,7 +22,7 @@ web:
   command: ["python", "-m", "http.server", "8000"]
 
 service:
-  type: LoadBalancer
+  type: NodePort
   port: 80
 
 ingress:
