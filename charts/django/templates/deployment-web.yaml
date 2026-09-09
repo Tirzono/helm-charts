@@ -1,5 +1,13 @@
+{{- /*
+The web container always declares `http`, the port the Service targets. Anything
+in web.extraPorts comes after it -- a metrics port for a PodMonitor to find by
+name is the usual case. It is a separate key rather than a passthrough of
+web.ports so that the one port the chart relies on cannot be left out or
+renamed by a values file.
+*/}}
 {{- $web := deepCopy .Values.web }}
-{{- $_ := set $web "ports" (list (dict "name" "http" "containerPort" (.Values.web.containerPort | int) "protocol" "TCP")) }}
+{{- $http := dict "name" "http" "containerPort" (.Values.web.containerPort | int) "protocol" "TCP" }}
+{{- $_ := set $web "ports" (concat (list $http) (.Values.web.extraPorts | default list)) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

@@ -41,7 +41,7 @@ consumes connections.
 | Block | What it covers |
 | ----- | -------------- |
 | `image` | The one image every process runs. |
-| `web` | The web process: command, replicas, port, probes, strategy. |
+| `web` | The web process: command, replicas, port, extra ports, probes, strategy. |
 | `extraProcesses` | A map keyed by process name; one Deployment per entry. Empty renders nothing. |
 | `celery`, `procrastinate` | Off by default. Shorthand that renders the usual processes for those frameworks. |
 | `service`, `ingress` | Networking. Both modes below are supported. |
@@ -243,6 +243,46 @@ Two things to watch:
   probe on the app cannot name the sidecar's port.
 - Port names are unique per pod: the app keeps `http`, the sidecar needs its own
   name.
+
+## Metrics
+
+The chart renders no monitoring objects, but it leaves room for them. An app
+that serves Prometheus metrics on a port of its own declares that port on the
+processes that have it, and ships the `PodMonitor` through `extraObjects`:
+
+```yaml
+web:
+  extraPorts:
+    - name: metrics
+      containerPort: 9090
+
+procrastinate:
+  worker:
+    ports:
+      - name: metrics
+        containerPort: 9090
+
+extraObjects:
+  - |
+    apiVersion: monitoring.coreos.com/v1
+    kind: PodMonitor
+    metadata:
+      name: {{ include "django.fullname" . }}-web
+      labels:
+        {{- include "django.labels" . | nindent 8 }}
+    spec:
+      selector:
+        matchLabels:
+          {{- include "django.componentSelectorLabels" (dict "root" . "component" "web") | nindent 10 }}
+      podMetricsEndpoints:
+        - port: metrics
+```
+
+`web.extraPorts` exists because the web container's `http` port is the one the
+Service targets, so the chart writes it itself and only appends to it; an extra
+process declares all of its `ports` directly. Neither changes the Service,
+which is the point: a metrics port is reachable inside the cluster and never
+through the ingress.
 
 ## Anything the chart does not render
 

@@ -202,6 +202,17 @@ web:
   # Port the application listens on. The Service targets this port.
   containerPort: 8000
 
+  # Further ports on the web container, after `http`. Declared so that
+  # something can find them by name -- a PodMonitor scraping a metrics port is
+  # the usual reason. The Service is not touched: it keeps pointing at `http`,
+  # which is what keeps a metrics port off the ingress.
+  #
+  # extraPorts:
+  #   - name: metrics
+  #     containerPort: 9090
+  #     protocol: TCP
+  extraPorts: []
+
   strategy: {}
     # type: RollingUpdate
 
