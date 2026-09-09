@@ -13,6 +13,11 @@ resources:
 
 web:
   command: ["python", "-m", "http.server", "8000"]
+  # Nothing listens here in CI; what is being tested is that the port is
+  # declared after `http` and by the name given.
+  extraPorts:
+    - name: metrics
+      containerPort: 9090
   readinessProbe:
     tcpSocket:
       port: http
